@@ -33,6 +33,156 @@ void TrataDigito(char c,FILE *file, Token *TabelaToken)
 
 }
 
+int hash_identificadores(const char *str) {
+    if (strcmp(str, "programa") == 0) return 1;
+    if (strcmp(str, "se") == 0) return 2;
+    if (strcmp(str, "entao") == 0) return 3;
+    if (strcmp(str, "senao") == 0) return 4;
+    if (strcmp(str, "enquanto") == 0) return 5;
+    if (strcmp(str, "faca") == 0) return 6;
+    if (strcmp(str, "inicio") == 0) return 7;
+    if (strcmp(str, "fim") == 0) return 8;
+    if (strcmp(str, "escreva") == 0) return 9;
+    if (strcmp(str, "leia") == 0) return 10;
+    if (strcmp(str, "var") == 0) return 11;
+    if (strcmp(str, "inteiro") == 0) return 12;
+    if (strcmp(str, "booleano") == 0) return 13;
+    if (strcmp(str, "verdadeiro") == 0) return 14;
+    if (strcmp(str, "falso") == 0) return 15;
+    if (strcmp(str, "procedimento") == 0) return 16;
+    if (strcmp(str, "funcao") == 0) return 17;
+    if (strcmp(str, "div") == 0) return 18;
+    if (strcmp(str, "e") == 0) return 19;
+    if (strcmp(str, "ou") == 0) return 20;
+    if (strcmp(str, "nao") == 0) return 21;
+    return 0;
+}
+
+void TrataIdentificador(char c,FILE *file, Token *TabelaToken)
+{
+    char id[50];
+    int i = 0;
+    id[i] = c;
+
+    c = fgetc(file);
+
+    while ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_' || (c >= '0' && c <= '9'))
+    {
+        id[++i] = c;
+        c = fgetc(file);
+    }
+
+    if (c != EOF) {
+        ungetc(c, file);
+    }
+
+    id[++i] = '\0';
+    strcpy(TabelaToken->lexema, id);
+
+    switch (hash_identificadores(id)) {
+        case 1:
+            strcpy(TabelaToken->simbolo, "sprograma");
+            break;
+        case 2:
+            strcpy(TabelaToken->simbolo, "sse");
+            break;
+        case 3:
+            strcpy(TabelaToken->simbolo, "sentao");
+            break;
+        case 4:
+            strcpy(TabelaToken->simbolo, "ssenao");
+            break;
+        case 5:
+            strcpy(TabelaToken->simbolo, "senquanto");
+            break;
+        case 6:
+            strcpy(TabelaToken->simbolo, "sfaca");
+            break;
+        case 7:
+            strcpy(TabelaToken->simbolo, "sinicio");
+            break;
+        case 8:
+            strcpy(TabelaToken->simbolo, "sfim");
+            break;
+        case 9:
+            strcpy(TabelaToken->simbolo, "sescreva");
+            break;
+        case 10:
+            strcpy(TabelaToken->simbolo, "sleia");
+            break;
+        case 11:
+            strcpy(TabelaToken->simbolo, "svar");
+            break;
+        case 12:
+            strcpy(TabelaToken->simbolo, "sinteiro");
+            break;
+        case 13:
+            strcpy(TabelaToken->simbolo, "sbooleano");
+            break;
+        case 14:
+            strcpy(TabelaToken->simbolo, "sverdadeiro");
+            break;
+        case 15:
+            strcpy(TabelaToken->simbolo, "sfalso");
+            break;
+        case 16:
+            strcpy(TabelaToken->simbolo, "sprocedimento");
+            break;
+        case 17:
+            strcpy(TabelaToken->simbolo, "sfuncao");
+            break;
+        case 18:
+            strcpy(TabelaToken->simbolo, "sdiv");
+            break;
+        case 19:
+            strcpy(TabelaToken->simbolo, "se");
+            break;
+        case 20:
+            strcpy(TabelaToken->simbolo, "sou");
+            break;
+        case 21:
+            strcpy(TabelaToken->simbolo, "snao");
+            break;
+        default:
+            strcpy(TabelaToken->simbolo, "sidentificador");
+    }    
+}
+
+void TrataAtribuicao(char c,FILE *file, Token *TabelaToken)
+{
+    c = fgetc(file);
+    if (c == '=')
+    {
+        strcpy(TabelaToken->simbolo, "satribuicao");
+        strcpy(TabelaToken->lexema, ":=");
+        c = fgetc(file);
+    }
+    else
+    {
+        strcpy(TabelaToken->simbolo, "sdoispontos");
+        strcpy(TabelaToken->lexema, ":");
+    } 
+}
+
+void TrataOperadorAritmetico(char c,FILE *file, Token *TabelaToken)
+{
+    if (c == '+')
+    {
+        strcpy(TabelaToken->simbolo, "smais");
+        strcpy(TabelaToken->lexema, "+");
+    }
+    else if (c == '-')
+    {
+        strcpy(TabelaToken->simbolo, "smenos");
+        strcpy(TabelaToken->lexema, "-");
+    }
+    else if (c == '*')
+    {
+        strcpy(TabelaToken->simbolo, "smult");
+        strcpy(TabelaToken->lexema, "*");
+    }
+}
+
 void PegaToken (char c, FILE *file, Token *TabelaToken)
 {
     if(c >= '0' && c <= '9')
@@ -41,12 +191,30 @@ void PegaToken (char c, FILE *file, Token *TabelaToken)
     }
     else if((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
     {
-        printf(" - Token: Identificador\n");
+        TrataIdentificador(c,file, TabelaToken);
+    }
+    else if(c == ':')
+    {
+        TrataAtribuicao(c,file, TabelaToken);
+    }
+    else if(c == '+' || c == '-' || c == '*' )
+    {
+        TrataOperadorAritmetico(c,file, TabelaToken);
+    }
+    else if(c == '=' || c == '<' || c == '>' || c == '!')
+    {
+        //TrataOperadorRelacional(c,file, TabelaToken);
+    }
+    else if(c == ';' || c == ',' || c == '(' || c == ')' || c == '.')
+    {
+        //TrataPontuacao(c,file, TabelaToken);
     }
     else
     {
-        printf(" - Token: Simbolo\n");
+        printf("Caractere desconhecido: %c\n", c);
+        exit(1);
     }
+   
 }
 
 
