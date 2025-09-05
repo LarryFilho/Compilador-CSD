@@ -183,6 +183,86 @@ void TrataOperadorAritmetico(char c,FILE *file, Token *TabelaToken)
     }
 }
 
+void TrataOperadorRelacional(char c,FILE *file, Token *TabelaToken)
+{
+    if (c == '>')
+    {
+        c = fgetc(file);
+        if (c == '=')
+        {
+            strcpy(TabelaToken->simbolo, "smaiorig");
+            strcpy(TabelaToken->lexema, ">=");
+            c = fgetc(file);
+        }else
+        {
+            strcpy(TabelaToken->simbolo, "smaior");
+            strcpy(TabelaToken->lexema, ">");
+
+        }
+    }
+    else if (c == '<')
+    {
+        c = fgetc(file);
+        if (c == '=')
+        {
+            strcpy(TabelaToken->simbolo, "smenorig");
+            strcpy(TabelaToken->lexema, "<=");
+            c = fgetc(file);
+        }else
+        {
+            strcpy(TabelaToken->simbolo, "smenor");
+            strcpy(TabelaToken->lexema, "<");
+        }
+    }
+    else if (c == '!')
+    {
+        c =fgetc(file);
+        if (c == '=')
+        {
+            strcpy(TabelaToken->simbolo, "sdif");
+            strcpy(TabelaToken->lexema, "!=");
+            c = fgetc(file);
+        }else
+        {
+            printf("Caractere desconhecido: !\n");
+            exit(1);
+        }
+    }else if (c == '=')
+    {
+        strcpy(TabelaToken->simbolo, "sigual");
+        strcpy(TabelaToken->lexema, "=");
+    }
+}
+
+void TrataPontuacao(char c,FILE *file, Token *TabelaToken)
+{
+    if (c == ';')
+    {
+        strcpy(TabelaToken->simbolo, "sponto_virgula");
+        strcpy(TabelaToken->lexema, ";");
+    }
+    else if (c == ',')
+    {
+        strcpy(TabelaToken->simbolo, "svirgula");
+        strcpy(TabelaToken->lexema, ",");
+    }
+    else if (c == '(')
+    {
+        strcpy(TabelaToken->simbolo, "sabre_parenteses");
+        strcpy(TabelaToken->lexema, "(");
+    }
+    else if (c == ')')
+    {
+        strcpy(TabelaToken->simbolo, "sfecha_parenteses");
+        strcpy(TabelaToken->lexema, ")");
+    }
+    else if (c == '.')
+    {
+        strcpy(TabelaToken->simbolo, "sponto");
+        strcpy(TabelaToken->lexema, ".");
+    }
+}
+
 void PegaToken (char c, FILE *file, Token *TabelaToken)
 {
     if(c >= '0' && c <= '9')
@@ -203,11 +283,11 @@ void PegaToken (char c, FILE *file, Token *TabelaToken)
     }
     else if(c == '=' || c == '<' || c == '>' || c == '!')
     {
-        //TrataOperadorRelacional(c,file, TabelaToken);
+        TrataOperadorRelacional(c,file, TabelaToken);
     }
     else if(c == ';' || c == ',' || c == '(' || c == ')' || c == '.')
     {
-        //TrataPontuacao(c,file, TabelaToken);
+        TrataPontuacao(c,file, TabelaToken);
     }
     else
     {
@@ -233,11 +313,9 @@ int main()
 
     int fgetc(FILE * file);
 
-    
-
     while ((c = fgetc(file)) != EOF)
     {
-        while (c == '{' || c == ' ' && c != EOF)
+        while (c == '{' || c == ' ' || c == '\n' && c != EOF)
         {
             if (c == '{')
             {
@@ -245,6 +323,10 @@ int main()
                 {
                     c = fgetc(file);
                 }
+                c = fgetc(file);
+            }
+            if (c == '\n')
+            {
                 c = fgetc(file);
             }
             while (c == ' ' && c != EOF)
