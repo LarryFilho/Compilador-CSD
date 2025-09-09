@@ -162,6 +162,9 @@ void TrataAtribuicao(char c,FILE *file, Token *TabelaToken)
         strcpy(TabelaToken->simbolo, "sdoispontos");
         strcpy(TabelaToken->lexema, ":");
     } 
+    if (c != EOF) {
+        ungetc(c, file);
+    }
 }
 
 void TrataOperadorAritmetico(char c,FILE *file, Token *TabelaToken)
@@ -199,6 +202,9 @@ void TrataOperadorRelacional(char c,FILE *file, Token *TabelaToken)
             strcpy(TabelaToken->lexema, ">");
 
         }
+        if (c != EOF) {
+        ungetc(c, file);
+    }
     }
     else if (c == '<')
     {
@@ -213,6 +219,9 @@ void TrataOperadorRelacional(char c,FILE *file, Token *TabelaToken)
             strcpy(TabelaToken->simbolo, "smenor");
             strcpy(TabelaToken->lexema, "<");
         }
+        if (c != EOF) {
+        ungetc(c, file);
+    }
     }
     else if (c == '!')
     {
@@ -227,6 +236,9 @@ void TrataOperadorRelacional(char c,FILE *file, Token *TabelaToken)
             printf("Caractere desconhecido: !\n");
             exit(1);
         }
+        if (c != EOF) {
+        ungetc(c, file);
+    }
     }else if (c == '=')
     {
         strcpy(TabelaToken->simbolo, "sigual");
@@ -315,7 +327,7 @@ int main()
 
     while ((c = fgetc(file)) != EOF)
     {
-        while (c == '{' || c == ' ' || c == '\n' && c != EOF)
+        while (c == '{' || c == ' ' || c == '\n' || c == '\t' && c != EOF)
         {
             if (c == '{')
             {
@@ -326,6 +338,10 @@ int main()
                 c = fgetc(file);
             }
             if (c == '\n')
+            {
+                c = fgetc(file);
+            }
+            if (c == '\t')
             {
                 c = fgetc(file);
             }
