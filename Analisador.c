@@ -7,6 +7,42 @@ typedef struct {
     char lexema[100];
 } Token;
 
+int numero_linha = 1; 
+
+// Declaração de protótipos de todas as funções
+void TrataDigito(char c, FILE *file, Token *token);
+int hash_identificadores(const char *str);
+void TrataIdentificador(char c, FILE *file, Token *token);
+void TrataAtribuicao(char c, FILE *file, Token *token);
+void TrataOperadorAritmetico(char c, FILE *file, Token *token);
+void TrataOperadorRelacional(char c, FILE *file, Token *token);
+void TrataPontuacao(char c, FILE *file, Token *token);
+Token PegaToken(char c, FILE *file, Token *token);
+Token lexico(FILE *file);
+Token analisa_tipo(Token token, FILE *file);
+Token analisa_variaveis(Token token, FILE *file);
+Token analisa_et_variaveis(Token token, FILE *file);
+void analisa_atrib_chprocedimento(Token token, FILE *file);
+Token analisa_leia(Token token, FILE *file);
+Token analisa_escreva(Token token, FILE *file);
+Token analisa_fator(Token token, FILE *file);
+void analisa_termo(Token token, FILE *file);
+void analisa_expressao_simples(Token token, FILE *file);
+void analisa_expressao(Token token, FILE *file);
+void analisa_enquanto(Token token, FILE *file);
+void analisa_se(Token token, FILE *file);
+void analisa_comando_simples(Token token, FILE *file);
+Token analisa_comandos(Token token, FILE *file);
+Token analisa_declaracao_procedimento(Token token, FILE *file);
+Token analisa_declaracao_funcao(Token token, FILE *file);
+Token analisa_subrotinas(Token token, FILE *file);
+void analisa_bloco(FILE *file);
+
+void erro(const char *mensagem) {
+    printf("Erro na linha %d: %s\n", numero_linha, mensagem);
+    exit(1);
+}
+
 void TrataDigito(char c,FILE *file, Token *token)
 {
     char num[20];
@@ -233,7 +269,7 @@ void TrataOperadorRelacional(char c,FILE *file, Token *token)
             c = fgetc(file);
         }else
         {
-            printf("Caractere desconhecido: !\n");
+            printf("Erro na linha %d: Caractere desconhecido: !\n", numero_linha);
             exit(1);
         }
         if (c != EOF) {
@@ -303,7 +339,7 @@ Token PegaToken (char c, FILE *file, Token *token)
     }
     else
     {
-        printf("Caractere desconhecido: %c\n", c);
+        printf("Erro na linha %d: Caractere desconhecido: %c\n", numero_linha, c);
         exit(1);
     }
    
@@ -327,11 +363,13 @@ Token lexico(FILE *file)
             while (c != '}' && c != EOF)
             {
                 c = fgetc(file);
+                if (c == '\n') numero_linha++;
             }
             c = fgetc(file);
         }
         if (c == '\n')
         {
+            numero_linha++;
             c = fgetc(file);
         }
         if (c == '\t')
@@ -352,6 +390,384 @@ Token lexico(FILE *file)
     return token;
 }
 
+
+Token analisa_tipo(Token token, FILE *file)
+{
+    if(strcmp(token.simbolo,"sinteiro") != 0 || strcmp(token.simbolo,"sbooleano") != 0)
+    {
+        erro("esperado tipo");
+    }
+    token = lexico(file);
+    return token;
+}
+
+Token analisa_variaveis(Token token, FILE *file)
+{
+    do
+    {
+        if(token.simbolo == "sidentificador")
+        {
+            lexico(file);
+            if(strcmp(token.simbolo,"sponto_virgula") == 0 || strcmp(token.simbolo,"svirgula") == 0)
+            {
+                if(strcmp(token.simbolo,"svirgula") == 0)
+                {
+                    token = lexico(file);
+                    if(strcmp(token.simbolo,"sdoispontos") == 0)
+                    {
+                        erro("dois pontos errado");
+                    }
+                }
+            }else
+            {
+                erro("esperado ';' ou ','");
+            }
+        }else
+        {
+            erro("esperado identificador");
+        }
+    } while (token.simbolo == "sdoispontos");
+    token = lexico(file);
+    token = analisa_tipo(token,file);
+    return token;
+}
+
+Token analisa_et_variaveis(Token token, FILE *file)
+{
+    if(strcmp(token.simbolo,"svar") == 0)
+    {
+       token = lexico(file);
+       if(strcmp(token.simbolo,"sidentificador") == 0)
+       {
+        analisa_variaveis(token,file);
+        if(strcmp(token.simbolo,"sponto_virgula") == 0)
+        {
+            token = lexico(file);
+            return token;
+        }else
+        {
+            erro("esperado ';'");
+        }
+       }else
+       {
+        erro("esperado identificador");
+        
+       }
+    }else
+    {
+        return token;
+    }
+}
+
+void analisa_atrib_chprocedimento(Token token, FILE *file)
+{
+    token = lexico(file);
+    if(strcmp(token.simbolo,"satribuicao") == 0)
+    {
+        //analisa_atribuicao();
+    }else
+    {
+        //chamada_procedimento();
+    }
+}
+
+Token analisa_leia(Token token, FILE *file)
+{
+    token = lexico(file);
+    if(strcmp(token.simbolo,"sabre_parenteses") == 0)
+    {
+        token = lexico(file);
+        if(strcmp(token.simbolo,"sidentificador") == 0)
+        {
+            token = lexico(file);
+            if(strcmp(token.simbolo,"sfecha_parenteses") == 0)
+            {
+                token = lexico(file);
+                return token;
+            }else
+            {
+                erro("esperado ')'");
+            }
+        }else
+        {
+            erro("esperado identificador");
+        }
+    }else
+    {
+        erro("esperado '('");
+    }
+}
+
+Token analisa_escreva(Token token, FILE *file)
+{
+    token = lexico(file);
+    if(strcmp(token.simbolo,"sabre_parenteses") == 0)
+    {
+        token = lexico(file);
+        if(strcmp(token.simbolo,"sidentificador") == 0)
+        {
+            token = lexico(file);
+            if(strcmp(token.simbolo,"sfecha_parenteses") == 0)
+            {
+                token = lexico(file);
+                return token;
+            }else
+            {
+                erro("esperado ')'");
+            }
+        }else
+        {
+            erro("esperado identificador");
+        }
+    }else
+    {
+        erro("esperado '('");
+    }
+}
+
+void analisa_termo(Token token, FILE *file)
+{
+    token = analisa_fator(token, file);
+    while(strcmp(token.simbolo,"smult") == 0 || strcmp(token.simbolo,"sdiv") == 0 || strcmp(token.simbolo,"se") == 0)
+    {
+        token = lexico(file);
+        token = analisa_fator(token, file);
+    }
+}
+
+void analisa_expressao_simples(Token token, FILE *file)
+{
+    if(strcmp(token.simbolo,"smais") == 0 || strcmp(token.simbolo,"smenos") == 0)
+    {
+        token = lexico(file);
+    }
+    analisa_termo(token, file);
+    while(strcmp(token.simbolo,"smais") == 0 || strcmp(token.simbolo,"smenos") == 0 || strcmp(token.simbolo,"sou") == 0)
+    {
+        token = lexico(file);
+        analisa_termo(token, file);
+    }
+}
+void analisa_expressao(Token token, FILE *file)
+{
+    analisa_expressao_simples(token, file);
+    if(
+        strcmp(token.simbolo,"smaior") == 0 ||
+        strcmp(token.simbolo,"smenor") == 0 || 
+        strcmp(token.simbolo,"smaiorig") == 0 || 
+        strcmp(token.simbolo,"smenorig") == 0 || 
+        strcmp(token.simbolo,"sigual") == 0 || 
+        strcmp(token.simbolo,"sdif") == 0
+        )
+    {
+        token = lexico(file);
+        analisa_expressao_simples(token, file);  
+    }
+}
+
+Token analisa_fator(Token token, FILE *file)
+{
+    if(strcmp(token.simbolo,"sidentificador") == 0)
+    {
+        //analisa_chamada_funcao();
+    }else if(strcmp(token.simbolo,"snumero") == 0)
+    {
+        token = lexico(file);
+        return token;
+    }else if(strcmp(token.simbolo,"snao") == 0)
+    {
+        token = lexico(file);
+        analisa_fator(token, file);
+    }else if(strcmp(token.simbolo,"sabre_parenteses") == 0)
+    {
+        token = lexico(file);
+        analisa_expressao(token, file);
+        if(strcmp(token.simbolo,"sfecha_parenteses") == 0)
+        {
+            token = lexico(file);
+            return token;
+        }else
+        {
+            erro("esperado ')'");
+        }
+    }else if(strcmp(token.simbolo,"sverdadeiro") == 0 || strcmp(token.simbolo,"sfalso") == 0)
+    {
+        token = lexico(file);
+        return token;
+    }else
+    {
+        erro("esperado fator");
+    }
+}
+
+void analisa_enquanto(Token token, FILE *file)
+{
+    token = lexico(file);
+    analisa_expressao(token, file);
+    if(strcmp(token.simbolo,"sfaca") == 0)
+    {
+        token = lexico(file);
+        analisa_comando_simples(token, file);
+    }else
+    {
+        erro("esperado 'faca'");
+    }
+}
+
+void analisa_se(Token token, FILE *file)
+{
+    token = lexico(file);
+    analisa_expressao(token, file);
+    if(strcmp(token.simbolo,"sentao") == 0)
+    {
+        token = lexico(file);
+        analisa_comando_simples(token, file);
+        if(strcmp(token.simbolo,"ssenao") == 0)
+        {
+            token = lexico(file);
+            analisa_comando_simples(token, file);
+        }
+    }else
+    {
+        erro("esperado 'entao'");
+    }
+}
+
+void analisa_comando_simples(Token token, FILE *file)
+{
+    if(strcmp(token.simbolo,"sidentificador") == 0)
+    {
+        analisa_atrib_chprocedimento(token, file);
+    }else if(strcmp(token.simbolo,"sse") == 0)
+    {
+        analisa_se(token, file);
+    }else if(strcmp(token.simbolo,"senquanto") == 0)
+    {
+        analisa_enquanto(token, file);
+    }else if (strcmp(token.simbolo,"sleia") == 0)
+    {
+        token = analisa_leia(token, file);
+    }else if (strcmp(token.simbolo,"sescreva") == 0)
+    {
+        token = analisa_escreva(token, file);
+    }else
+    {
+        analisa_comandos(token,file);
+    }
+}
+
+
+Token analisa_comandos(Token token, FILE *file)
+{
+    if(strcmp(token.simbolo,"sinicio") == 0)
+    {
+        token = lexico(file);
+        analisa_comando_simples(token, file);
+        while(strcmp(token.simbolo,"sfim") != 0)
+        {
+            if(strcmp(token.simbolo,"sponto_virgula") == 0)
+            {
+                token = lexico(file);
+                if(strcmp(token.simbolo,"sfim") != 0)
+                {
+                    analisa_comando_simples(token,file);
+                }
+            }else
+            {
+                erro("esperado ';'");
+            }
+            token = lexico(file);
+        }
+    }else
+        {
+            erro("esperado 'inicio'");
+        }
+}
+
+Token analisa_declaracao_procedimento(Token token, FILE *file)
+{
+    token = lexico(file);
+    if(strcmp(token.simbolo,"sidentificador") == 0)
+    {
+        token = lexico(file);
+        if(strcmp(token.simbolo,"sponto_virgula") == 0)
+        {
+            analisa_bloco(file);
+        }else
+        {
+            erro("esperado ';'");
+        }
+    }else
+    {
+        erro("esperado identificador");
+    }
+    return token;
+}
+
+Token analisa_declaracao_funcao(Token token, FILE *file)
+{
+    token = lexico(file);
+    if(strcmp(token.simbolo,"sidentificador") == 0)
+    {
+        token = lexico(file);
+        if(strcmp(token.simbolo,"sdoispontos") == 0)
+        {
+            token = lexico(file);
+            if(strcmp(token.simbolo,"sinteiro") == 0 || strcmp(token.simbolo,"sbooleano") == 0)
+            {
+                token = lexico(file);
+                if(strcmp(token.simbolo,"sponto_virgula") == 0)
+                {
+                    analisa_bloco(file);
+                }else
+                {
+                    erro("esperado ';'");
+                }
+            }else
+            {
+                //Este erro nao estava no codigo original do Freitas !!!!
+                erro("esperado tipo");
+            }
+        }else
+        {
+            erro("esperado ':'");
+        }
+    }else
+    {
+        erro("esperado identificador");
+    }
+    return token;
+}
+
+Token analisa_subrotinas(Token token, FILE *file)
+{
+    while(strcmp(token.simbolo,"sprocedimento") == 0 || strcmp(token.simbolo,"sfuncao") == 0)
+    {
+        if(strcmp(token.simbolo,"sprocedimento") == 0)
+        {
+            token = analisa_declaracao_procedimento(token, file);
+        }else
+        {
+            token = analisa_declaracao_funcao(token, file);
+        }
+        if(strcmp(token.simbolo,"sponto_virgula") == 0)
+        {
+            token = lexico(file);
+        }else
+        {
+            erro("esperado ';'");
+        }
+    }
+    return token;
+}
+void analisa_bloco(FILE *file)
+{
+    Token token;
+    token = lexico(file);
+    token = analisa_et_variaveis(token,file);
+    token = analisa_subrotinas(token,file);
+    token = analisa_comandos(token,file);
+}
 
 int main()
 {
@@ -375,38 +791,28 @@ int main()
             token = lexico(file);
             if(strcmp(token.simbolo,"sponto_virgula") == 0)
             {
-                //analisa_bloco();
+                analisa_bloco(file);
                 token = lexico(file);
                 if(strcmp(token.simbolo,"sponto") == 0)
                 {
                     printf("Análise sintatica concluída com sucesso!\n");
                 }else
                 {
-                    printf("Erro: esperado '.'\n");
-                    return 1;
+                    erro("esperado '.'");
                 }
             }else
             {
-                printf("Erro: esperado ';'\n");
-                return 1;
+                erro("esperado ';'");
             }
         }else
         {
-            printf("Erro: esperado identificador\n");
-            return 1;
+            erro("esperado identificador");
         }
     }else
     {
-        printf("Erro: esperado 'programa'\n");
-        return 1;
+        erro("esperado 'programa'");
     }
 
-   
-
-    /*for(int i = 0; i < 10; i++) {
-        token =lexico(file);
-        printf("Simbolo: %s, Lexema: %s\n", token.simbolo, token.lexema);
-    }*/
     
     fclose(file);
 
