@@ -37,6 +37,8 @@ Token analisa_declaracao_procedimento(Token token, FILE *file);
 Token analisa_declaracao_funcao(Token token, FILE *file);
 Token analisa_subrotinas(Token token, FILE *file);
 void analisa_bloco(FILE *file);
+void analisa_chamada_funcao(FILE *file);
+void chamada_procedimento(Token token, FILE *file);
 
 void erro(const char *mensagem) {
     printf("Erro na linha %d: %s\n", numero_linha, mensagem);
@@ -393,7 +395,7 @@ Token lexico(FILE *file)
 
 Token analisa_tipo(Token token, FILE *file)
 {
-    if(strcmp(token.simbolo,"sinteiro") != 0 || strcmp(token.simbolo,"sbooleano") != 0)
+    if(strcmp(token.simbolo,"sinteiro") != 0 && strcmp(token.simbolo,"sbooleano") != 0)
     {
         erro("esperado tipo");
     }
@@ -405,10 +407,10 @@ Token analisa_variaveis(Token token, FILE *file)
 {
     do
     {
-        if(token.simbolo == "sidentificador")
+        if(strcmp(token.simbolo,"sidentificador") == 0)
         {
-            lexico(file);
-            if(strcmp(token.simbolo,"sponto_virgula") == 0 || strcmp(token.simbolo,"svirgula") == 0)
+            token = lexico(file);
+            if(strcmp(token.simbolo,"sdoispontos") == 0 || strcmp(token.simbolo,"svirgula") == 0)
             {
                 if(strcmp(token.simbolo,"svirgula") == 0)
                 {
@@ -426,7 +428,7 @@ Token analisa_variaveis(Token token, FILE *file)
         {
             erro("esperado identificador");
         }
-    } while (token.simbolo == "sdoispontos");
+    } while (strcmp(token.simbolo,"sdoispontos") != 0);
     token = lexico(file);
     token = analisa_tipo(token,file);
     return token;
@@ -439,7 +441,7 @@ Token analisa_et_variaveis(Token token, FILE *file)
        token = lexico(file);
        if(strcmp(token.simbolo,"sidentificador") == 0)
        {
-        analisa_variaveis(token,file);
+        token = analisa_variaveis(token,file);
         if(strcmp(token.simbolo,"sponto_virgula") == 0)
         {
             token = lexico(file);
@@ -459,15 +461,24 @@ Token analisa_et_variaveis(Token token, FILE *file)
     }
 }
 
+void chamada_procedimento(Token token, FILE *file)
+{
+    if(strcmp(token.simbolo,"sidentificador") != 0)
+    {
+        erro("esperado identificador");
+    }
+}
 void analisa_atrib_chprocedimento(Token token, FILE *file)
 {
     token = lexico(file);
     if(strcmp(token.simbolo,"satribuicao") == 0)
     {
-        //analisa_atribuicao();
+        //analisa_atribuicao(); perguntar pro freitas
+        token = lexico(file);
+        analisa_expressao(token,file);
     }else
     {
-        //chamada_procedimento();
+        chamada_procedimento(token,file);
     }
 }
 
@@ -682,6 +693,7 @@ Token analisa_comandos(Token token, FILE *file)
         {
             erro("esperado 'inicio'");
         }
+    return token;
 }
 
 Token analisa_declaracao_procedimento(Token token, FILE *file)
