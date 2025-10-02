@@ -648,12 +648,17 @@ Token analisa_enquanto(Token token, FILE *file)
     {
         token = lexico(file);
         token = analisa_comandos(token, file);
+        if(strcmp(token.simbolo,"sfim") != 0)
+        {
+            erro("esperado 'fim'");
+        }
         //perguntar pro freitas
         //token = analisa_comando_simples(token, file);
     }else
     {
         erro("esperado 'faca'");
     }
+    token = lexico(file);
     return token;
 }
 
