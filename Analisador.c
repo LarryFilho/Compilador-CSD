@@ -38,7 +38,7 @@ Token analisa_declaracao_funcao(Token token, FILE *file);
 Token analisa_subrotinas(Token token, FILE *file);
 Token analisa_bloco(FILE *file);
 void analisa_chamada_funcao(Token token,FILE *file);
-void chamada_procedimento(Token token, FILE *file);
+Token chamada_procedimento(Token token, FILE *file);
 
 void erro(const char *mensagem) {
     printf("Erro na linha %d: %s\n", numero_linha, mensagem);
@@ -482,12 +482,13 @@ void analisa_chamada_funcao(Token token, FILE *file)
     }
 }
 
-void chamada_procedimento(Token token, FILE *file)
+Token chamada_procedimento(Token token, FILE *file)
 {
-    if(strcmp(token.simbolo,"sidentificador") != 0)
+    if(strcmp(token.simbolo,"sponto_virgula") != 0)
     {
-        erro("esperado identificador");
+        erro("esperado ';'");
     }
+    return token;
 }
 Token analisa_atrib_chprocedimento(Token token, FILE *file)
 {
@@ -500,7 +501,8 @@ Token analisa_atrib_chprocedimento(Token token, FILE *file)
         return token;
     }else
     {
-        chamada_procedimento(token,file);
+        token = chamada_procedimento(token,file);
+        return token;
     }
 }
 
@@ -647,13 +649,13 @@ Token analisa_enquanto(Token token, FILE *file)
     if(strcmp(token.simbolo,"sfaca") == 0)
     {
         token = lexico(file);
-        token = analisa_comandos(token, file);
+        /*token = analisa_comandos(token, file);
         if(strcmp(token.simbolo,"sfim") != 0)
         {
             erro("esperado 'fim'");
-        }
+        }*/
         //perguntar pro freitas
-        //token = analisa_comando_simples(token, file);
+        token = analisa_comando_simples(token, file);
     }else
     {
         erro("esperado 'faca'");
