@@ -911,6 +911,7 @@ void insere_tabela(const char *nome, const char *tipo, char escopo, int memoria,
 int pesquisa_duplicvar_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[])
 {
     int aux = *pc;
+    
     while(TABSIMB[aux].escopo != 'L')
     {
         if(strcmp(lexema,TABSIMB[aux].nome) == 0 )
@@ -921,6 +922,12 @@ int pesquisa_duplicvar_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[])
             aux--;
         }
     }
+
+    if(strcmp(lexema, TABSIMB[aux].nome) == 0)
+    {
+        return 1;
+    }
+
     return 0;
 }
 
