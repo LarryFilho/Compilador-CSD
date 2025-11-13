@@ -52,7 +52,11 @@ void coloca_tipo_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[]);
 int pesquisa_declvar_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[]);
 void desempilha_nivel(const char nivel,int *pc,Tabsimb TABSIMB[]);
 void imprime_tabela(Tabsimb TABSIMB[], int *pc);
-
+void analisa_atribuicao(Token token, FILE *file, Tabsimb TABSIMB[], Token token_nome);
+void trata_expressao_posfix(Token token, FILE *file);
+int precedencia(char operador);
+char acha_caractere_anterior(char saida[], int contador_saida);
+int eh_operador_unario(char operador, char caractere_anterior);
 
 void erro(const char *mensagem) {
     printf("Erro na linha %d: %s\n", numero_linha, mensagem);
@@ -327,6 +331,195 @@ void TrataPontuacao(char c,FILE *file, Token *token)
     }
 }
 
+void analisa_atribuicao(Token token, FILE *file, Tabsimb TABSIMB[], Token token_nome)
+{
+    /* for(int i = 0; token_nome.lexema[i] != 0 ; i++)
+    {
+        if(token_nome.lexema[i] == 0)
+        {
+            break;
+        }
+        printf("%c", token_nome.lexema[i]);
+    }  */ // bloco de código para pegar o nome completo da variavel ou funcao/proc!!!!
+
+    trata_expressao_posfix(token, file);
+}
+
+void trata_expressao_posfix(Token token, FILE *file)
+{
+    char saida[300], pilha[100], operador_atual = ' ', caractere_anterior;
+    int contador_saida = 0, contador_pilha = 0, eh_unario;;
+
+    for(int i = 0; i < 300; i++) saida[i] = '\0';   //inicializa ambos os vetores com /0 pra evitar problemas com lixo
+    for(int i = 0; i < 100; i++) pilha[i] = '\0';
+
+    while(1) //so sai quando der erro ou parar no "break" (terminando de desempilhar a pilha) 
+    {
+        token = lexico(file);
+
+        if(strcmp(token.simbolo,"sidentificador") == 0 || strcmp(token.simbolo,"snumero") == 0) 
+        {
+            for(int i = 0; token.lexema[i] != '\0'; i++) //verifica se nao é o final da expressao
+            {
+                saida[contador_saida++] = token.lexema[i];  //adiciona o lexema a saida
+            }
+            saida[contador_saida++] = ' '; //coloca um espaço entre os elementos da "saida"
+        }
+        else if(strcmp(token.simbolo,"sabre_parenteses") == 0) 
+        {
+            pilha[contador_pilha++] = '('; //empilha se for um "("
+        }
+        else if(strcmp(token.simbolo,"sfecha_parenteses") == 0) 
+        {
+            while(contador_pilha > 0 && pilha[contador_pilha-1] != '(') //desempilha até achar um abre parenteses
+            {
+                saida[contador_saida++] = pilha[--contador_pilha];
+                saida[contador_saida++] = ' ';  //troca oq havia na pilha por espaço " "
+            }
+            if(pilha[contador_pilha-1] == '(') 
+            {
+                contador_pilha--; //remove o abre parenteses da pilha
+            } else 
+                {
+                    erro("Fecha parenteses sem um abre parenteses");
+                }
+        }
+        else if(strcmp(token.simbolo,"smais") == 0 || //verifica qual o operador
+                strcmp(token.simbolo,"smenos") == 0 || 
+                strcmp(token.simbolo,"sdiv") == 0 ||
+                strcmp(token.simbolo,"smult") == 0 ||  
+                strcmp(token.simbolo,"smaior") == 0 ||
+                strcmp(token.simbolo,"smenor") == 0 || 
+                strcmp(token.simbolo,"smaiorig") == 0 || 
+                strcmp(token.simbolo,"smenorig") == 0 || 
+                strcmp(token.simbolo,"sigual") == 0 || 
+                strcmp(token.simbolo,"sdif") == 0 ||
+                strcmp(token.simbolo,"snao") == 0 ||
+                strcmp(token.simbolo,"se") == 0 ||
+                strcmp(token.simbolo,"sou") == 0) 
+            {
+
+                caractere_anterior = acha_caractere_anterior(saida, contador_saida);
+
+                if(strcmp(token.simbolo,"smais") == 0)
+                {
+                    eh_unario = eh_operador_unario('+', caractere_anterior);
+
+                    if(eh_unario == 1)
+                    {
+                        operador_atual = 'M'; //simbolo unitario do +
+                    } 
+                    else if(eh_unario == 0)
+                    {
+                        operador_atual = '+';
+                    }
+                }   
+                else if(strcmp(token.simbolo,"smenos") == 0)
+                {
+                    eh_unario = eh_operador_unario('-', caractere_anterior);
+
+                    if(eh_unario == 1)
+                    {
+                        operador_atual = 'S'; //simbolo unitario do -
+                    } 
+                    else if(eh_unario == 0)
+                    {
+                        operador_atual = '-';
+                    }
+                }
+                else if(strcmp(token.simbolo,"smult") == 0) operador_atual= '*';
+                else if(strcmp(token.simbolo,"sdiv") == 0) operador_atual= '/';
+                else if(strcmp(token.simbolo,"smaior") == 0) operador_atual= '>';
+                else if(strcmp(token.simbolo,"smenor") == 0) operador_atual= '<';
+                else if(strcmp(token.simbolo,"smaiorig") == 0) operador_atual = 'G'; //simbolo de maior ou igual pq nao fiz pra poder mais de caracter pq operador_atual é um char
+                else if(strcmp(token.simbolo,"smenorig") == 0) operador_atual= 'L'; //simbolo de menor ou igual
+                else if(strcmp(token.simbolo,"sigual") == 0) operador_atual= '=';
+                else if(strcmp(token.simbolo,"sdif") == 0) operador_atual= '!';
+                else if(strcmp(token.simbolo,"snao") == 0) operador_atual= 'N';
+                else if(strcmp(token.simbolo,"se") == 0) operador_atual= 'E';
+                else if(strcmp(token.simbolo,"sou") == 0) operador_atual= '|';
+                                
+                while(contador_pilha > 0 && 
+                    pilha[contador_pilha-1] != '(' &&
+                    precedencia(pilha[contador_pilha-1]) >= precedencia(operador_atual))  //desempilha os operadores com MAIOR OU IGUAL precedencia
+                {
+                    saida[contador_saida++] = pilha[--contador_pilha];
+                    saida[contador_saida++] = ' ';
+                }
+
+                pilha[contador_pilha++] = operador_atual; //empilha o operador atual
+            }
+        else if(strcmp(token.simbolo,"sponto_virgula") == 0 || strcmp(token.simbolo,"sfim") == 0) //verifica o fim da expressao
+        {
+            while(contador_pilha > 0) 
+            {
+                saida[contador_saida++] = pilha[--contador_pilha];  //desempilha todos os operadores restantes
+                saida[contador_saida++] = ' ';
+            }
+
+            break;
+        }
+    }
+
+    printf("Expressão posfixa: %s\n", saida); //print teste da posfixa
+}
+
+int precedencia(char operador) {
+    switch(operador) 
+    {
+        case 'M': case 'S':  
+            return 8;
+        case '*': case '/': 
+            return 7;
+        case '+': case '-':   
+            return 6;
+        case '>': case '<': case 'G': case 'L': case '=': case '!': 
+            return 5;
+        case 'N': 
+            return 4;
+        case 'E': 
+            return 3;
+        case '|':
+            return 2;
+        default:
+            return 1;
+    }
+}
+
+char acha_caractere_anterior(char saida[], int contador_saida)  //funcao feita pra achar o primeiro caractere na saida que NAO SEJA ESPAÇO
+{
+    for(int contador_auxiliar = contador_saida - 1; contador_auxiliar >= 0; contador_auxiliar--)
+    {
+        if(contador_saida == 0) 
+        {
+            return '\0';
+        }
+        else if(saida[contador_auxiliar] != ' ') //percorre todo o vetor a partir do topo decrementando ate achar um caracetere valido e retorna
+        {
+            return saida[contador_auxiliar];
+        }
+    }
+    return '\0'; //retorna vazio se não encontrar nenhum vlido
+}
+
+int eh_operador_unario(char operador, char caractere_anterior) {
+    if (operador == '+' || operador == '-') {
+        if(caractere_anterior == '(' || caractere_anterior == '\0' || 
+           caractere_anterior == '+' || caractere_anterior == '-' || 
+           caractere_anterior == '*' || caractere_anterior == '/' ||
+           caractere_anterior == '>' || caractere_anterior == '<' || 
+           caractere_anterior == 'G' || caractere_anterior == 'L' || 
+           caractere_anterior == '=' || caractere_anterior == '!' || 
+           caractere_anterior == 'N' || caractere_anterior == 'E' || 
+           caractere_anterior == '|' || caractere_anterior == 'M' || 
+           caractere_anterior == 'S') {
+            return 1; //retorna que EH UNARIOA 
+        } else {
+            return 0; //retorna que NAO EH UNARIO
+        }
+    }
+}
+
 Token PegaToken (char c, FILE *file, Token *token)
 {
     if(c >= '0' && c <= '9')
@@ -507,10 +700,11 @@ Token chamada_procedimento(Token token, FILE *file)
 }
 Token analisa_atrib_chprocedimento(Token token, FILE *file, int *pc, Tabsimb TABSIMB[])
 {
+    Token token_nome = token;
     token = lexico(file);
     if(strcmp(token.simbolo,"satribuicao") == 0)
     {
-        //analisa_atribuicao(); perguntar pro freitas
+        analisa_atribuicao(token, file, TABSIMB, token_nome);
         token = lexico(file);
         token = analisa_expressao(token,file,pc,TABSIMB);
         return token;

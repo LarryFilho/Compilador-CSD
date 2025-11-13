@@ -1,3 +1,7 @@
-se contador > 10 { exemplo de comentário }
-entao escreva (contador)
-senao escreva (x);
+programa test1;
+
+var x, c, resultado: inteiro;
+
+inicio
+  resultado:= (-x + 7 * 5  div (30+y) <= (x*a+2))e(z>0)
+fim.
