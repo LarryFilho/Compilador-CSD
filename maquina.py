@@ -1,289 +1,301 @@
-# Versão mais simples e direta
-def carregar_programa_simples(nome_arquivo):
+class MaquinaVirtual:
     """
-    Versão mais simples que trata cada caso especificamente
+    Máquina Virtual com callbacks para integração com GUI
     """
-    programa = []
+    def __init__(self, tamanho_memoria=100):
+        self.programa = []
+        self.memoria = [0] * tamanho_memoria
+        self.i = 0  # Program counter
+        self.s = -1  # Stack pointer
+        self.rotulos = {}
+        self.executando = False
+        self.pausado = False
+        
+        # Callbacks (a GUI pode registrar funções aqui)
+        self.on_output = None  # Callback para PRN
+        self.on_input_request = None  # Callback para RD (retorna valor)
+        self.on_state_change = None  # Callback para atualização de estado
+        self.on_halt = None  # Callback quando termina
+        self.on_error = None  # Callback para erros
     
-    with open(nome_arquivo, 'r') as arquivo:
-        for linha in arquivo:
-            linha = linha.strip()
-            
-            if not linha:
-                continue
+    def carregar_programa(self, nome_arquivo):
+        """Carrega programa de arquivo"""
+        self.programa = []
+        
+        with open(nome_arquivo, 'r', encoding='utf-8') as arquivo:
+            for linha in arquivo:
+                linha = linha.strip()
+                if not linha:
+                    continue
                 
-            partes = linha.split()
-            rotulo, comando, valor1, valor2 = "", "", "", ""
+                partes = linha.split()
+                rotulo, comando, valor1, valor2 = "", "", "", ""
+                
+                if not partes:
+                    continue
+                
+                # Linha com rótulo
+                if len(partes) >= 2 and partes[0].startswith('L') and partes[0][1:].isdigit():
+                    rotulo = partes[0]
+                    comando = partes[1]
+                    if len(partes) > 2:
+                        valores = ' '.join(partes[2:])
+                        if ',' in valores:
+                            val_split = valores.split(',')
+                            valor1 = val_split[0].strip()
+                            valor2 = val_split[1].strip() if len(val_split) > 1 else ""
+                        else:
+                            valor1 = partes[2] if len(partes) > 2 else ""
+                            valor2 = partes[3] if len(partes) > 3 else ""
+                else:
+                    comando = partes[0]
+                    if len(partes) > 1:
+                        valores = ' '.join(partes[1:])
+                        if ',' in valores:
+                            val_split = valores.split(',')
+                            valor1 = val_split[0].strip()
+                            valor2 = val_split[1].strip() if len(val_split) > 1 else ""
+                        else:
+                            valor1 = partes[1] if len(partes) > 1 else ""
+                            valor2 = partes[2] if len(partes) > 2 else ""
+                
+                self.programa.append([rotulo, comando, valor1, valor2])
+        
+        # Mapeia rótulos
+        self.rotulos = {instr[0]: i for i, instr in enumerate(self.programa) if instr[0]}
+        self.resetar()
+        return len(self.programa)
+    
+    def resetar(self):
+        """Reseta o estado da VM"""
+        self.i = 0
+        self.s = -1
+        self.memoria = [0] * len(self.memoria)
+        self.executando = False
+        self.pausado = False
+    
+    def executar_instrucao(self):
+        """Executa uma única instrução. Retorna True se deve continuar, False se parou"""
+        if self.i >= len(self.programa):
+            return False
+        
+        rotulo, comando, val1, val2 = self.programa[self.i]
+        
+        try:
+            if comando == "HLT":
+                self.executando = False
+                if self.on_halt:
+                    self.on_halt()
+                return False
             
-            if not partes:
-                continue
+            elif comando == "START" or comando == "NULL":
+                self.i += 1
             
-            # Caso 1: Linha com rótulo (ex: "L2 NULL")
-            if len(partes) >= 2 and partes[0].startswith('L') and partes[0][1:].isdigit():
-                rotulo = partes[0]
-                comando = partes[1]
-                # Processa valores se existirem
-                if len(partes) > 2:
-                    valores = ' '.join(partes[2:])
-                    # Separa por vírgula se existir
-                    if ',' in valores:
-                        val_split = valores.split(',')
-                        valor1 = val_split[0].strip()
-                        valor2 = val_split[1].strip() if len(val_split) > 1 else ""
-                    else:
-                        valor1 = partes[2] if len(partes) > 2 else ""
-                        valor2 = partes[3] if len(partes) > 3 else ""
+            elif comando == "LDC":
+                self.s += 1
+                self.memoria[self.s] = int(val1)
+                self.i += 1
             
-            # Caso 2: Linha sem rótulo (ex: "ALLOC 0,2")
-            else:
-                comando = partes[0]
-                if len(partes) > 1:
-                    valores = ' '.join(partes[1:])
-                    # Separa por vírgula se existir
-                    if ',' in valores:
-                        val_split = valores.split(',')
-                        valor1 = val_split[0].strip()
-                        valor2 = val_split[1].strip() if len(val_split) > 1 else ""
-                    else:
-                        valor1 = partes[1] if len(partes) > 1 else ""
-                        valor2 = partes[2] if len(partes) > 2 else ""
+            elif comando == "LDV":
+                self.s += 1
+                self.memoria[self.s] = self.memoria[int(val1)]
+                self.i += 1
             
-            programa.append([rotulo, comando, valor1, valor2])
+            elif comando == "ADD":
+                self.memoria[self.s-1] = self.memoria[self.s-1] + self.memoria[self.s]
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "SUB":
+                self.memoria[self.s-1] = self.memoria[self.s-1] - self.memoria[self.s]
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "MULT":
+                self.memoria[self.s-1] = self.memoria[self.s-1] * self.memoria[self.s]
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "DIVI":
+                valor1 = self.memoria[self.s-1]
+                valor2 = self.memoria[self.s]
+                self.memoria[self.s-1] = valor1 // valor2 if valor2 != 0 else 0
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "INV":
+                self.memoria[self.s] = -self.memoria[self.s]
+                self.i += 1
+            
+            elif comando == "AND":
+                self.memoria[self.s-1] = 1 if (self.memoria[self.s-1] == 1 and self.memoria[self.s] == 1) else 0
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "OR":
+                self.memoria[self.s-1] = 1 if (self.memoria[self.s-1] == 1 or self.memoria[self.s] == 1) else 0
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "NEG":
+                self.memoria[self.s] = 1 - self.memoria[self.s]
+                self.i += 1
+            
+            elif comando == "CME":
+                self.memoria[self.s-1] = 1 if self.memoria[self.s-1] < self.memoria[self.s] else 0
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "CMA":
+                self.memoria[self.s-1] = 1 if self.memoria[self.s-1] > self.memoria[self.s] else 0
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "CEQ":
+                self.memoria[self.s-1] = 1 if self.memoria[self.s-1] == self.memoria[self.s] else 0
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "CDIF":
+                self.memoria[self.s-1] = 1 if self.memoria[self.s-1] != self.memoria[self.s] else 0
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "CMEQ":
+                self.memoria[self.s-1] = 1 if self.memoria[self.s-1] <= self.memoria[self.s] else 0
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "CMAQ":
+                self.memoria[self.s-1] = 1 if self.memoria[self.s-1] >= self.memoria[self.s] else 0
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "STR":
+                self.memoria[int(val1)] = self.memoria[self.s]
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "JMP":
+                self.i = self.rotulos[val1]
+            
+            elif comando == "JMPF":
+                if self.memoria[self.s] == 0:
+                    self.i = self.rotulos[val1]
+                else:
+                    self.i += 1
+                self.s -= 1
+            
+            elif comando == "RD":
+                # Solicita entrada via callback
+                if self.on_input_request:
+                    # A GUI pausará e chamará fornecer_entrada() depois
+                    self.pausado = True
+                    self.on_input_request()
+                    return True  # Continua executando após entrada
+                else:
+                    # Modo console
+                    valor = int(input("Entre com um valor inteiro: "))
+                    self.s += 1
+                    self.memoria[self.s] = valor
+                    self.i += 1
+            
+            elif comando == "PRN":
+                valor = self.memoria[self.s]
+                if self.on_output:
+                    self.on_output(valor)
+                else:
+                    print(f"Saída: {valor}")
+                self.s -= 1
+                self.i += 1
+            
+            elif comando == "ALLOC":
+                m = int(val1)
+                n = int(val2)
+                for k in range(n):
+                    self.s += 1
+                    self.memoria[self.s] = self.memoria[m + k]
+                self.i += 1
+            
+            elif comando == "DALLOC":
+                m = int(val1)
+                n = int(val2)
+                for k in range(n-1, -1, -1):
+                    self.memoria[m + k] = self.memoria[self.s]
+                    self.s -= 1
+                self.i += 1
+            
+            elif comando == "CALL":
+                self.s += 1
+                self.memoria[self.s] = self.i + 1
+                self.i = self.rotulos[val1]
+            
+            elif comando == "RETURN":
+                self.i = self.memoria[self.s]
+                self.s -= 1
+            
+            else:
+                self.i += 1
+            
+            # Notifica mudança de estado
+            if self.on_state_change:
+                self.on_state_change(self.i, self.s)
+            
+            return True
+            
+        except Exception as e:
+            if self.on_error:
+                self.on_error(str(e))
+            self.executando = False
+            return False
     
-    return programa
-
-def executar_programa_simples(programa,tamanho_memoria=100):
-   
-    # Mapeia rótulos para índices
-    rotulos = {}
-    for i, instrucao in enumerate(programa):
-        rotulo = instrucao[0]
-        if rotulo:
-            rotulos[rotulo] = i
+    def fornecer_entrada(self, valor):
+        """Chamado pela GUI quando usuário fornece entrada para RD"""
+        self.s += 1
+        self.memoria[self.s] = int(valor)
+        self.i += 1
+        self.pausado = False
+        
+        # Notifica mudança de estado
+        if self.on_state_change:
+            self.on_state_change(self.i, self.s)
     
-    i = 0  # Linha atual
-    s = -1  # Posição de memoria
-    memoria = [0] * tamanho_memoria
-    
-    print("=== EXECUÇÃO ATÉ ENCONTRAR HLT ===")
-    
-    while True:
-        rotulo, comando, val1, val2 = programa[i]
-        
-        #(f"i={i}:{rotulo} {comando} {val1} {val2}")
-        
-        # PARA quando encontrar HLT
-        if comando == "HLT":
-            #(">>> ENCONTROU HLT - PARANDO EXECUÇÃO")
-            break
-        
-        # Executa comandos de salto
-        if comando == "LDC":
-            #(">>> ENCONTROU LCD ")
-            s +=1
-            memoria[s] = int(val1)
-            #(f"memoria = {memoria[s]}")
-            i +=1
-        
-        elif comando == "LDV":
-            #(">>> ENCONTROU LDV ")
-            s +=1
-            endereco = int(val1)
-            memoria[s] = memoria[endereco]
-            i +=1
-        
-        elif comando == "ADD":
-            #(">>> ENCONTROU ADD ")
-            memoria[s-1] = memoria[s-1] + memoria[s]
-            s -=1
-            i +=1
+    def obter_estado(self):
+        """Retorna estado atual da VM"""
+        return {
+            'i': self.i,
+            's': self.s,
+            'programa': self.programa,
+            'memoria': self.memoria.copy(),
+            'executando': self.executando,
+            'pausado': self.pausado
+        }
 
-        elif comando == "SUB":
-            #(">>> ENCONTROU SUB ")
-            memoria[s-1] = memoria[s-1] - memoria[s]
-            s -=1
-            i +=1
-        
-        elif comando == "MULT":
-            #(">>> ENCONTROU MULT ")
-            memoria[s-1] = memoria[s-1] * memoria[s]
-            s -=1
-            i +=1
-        
-        elif comando == "DIVI":
-            #(">>> ENCONTROU DIVI ")
-            #(f"memS : {memoria[s]}     memS-1 : {memoria[s-1]}")
-            valor1 = memoria[s-1]
-            valor2 = memoria[s]
-            memoria[s-1] = valor1 // valor2
-            s -=1
-            i +=1
-        
-        elif comando == "INV":
-            #(">>> ENCONTROU INV ")
-            memoria[s] = -memoria[s]
-            i +=1
 
-        elif comando == "AND":
-            #(">>> ENCONTROU AND ")
-            if memoria[s-1] == 1 and memoria[s] == 1: # memoria anterior deve ser igual a memoria atual ou os dois devem ser 1 ? PERGUNTAR
-                memoria[s-1] = 1
-            else:
-                memoria[s-1] = 0
-            s -=1
-            i +=1
-        elif comando == "OR":
-            #(">>> ENCONTROU OR ")
-            if memoria[s-1] == 1 or memoria[s] == 1: # memoria anterior deve ser 1 OU a memoria atual deve ser 1 ? PERGUNTAR
-                memoria[s-1] = 1
-            else:
-                memoria[s-1] = 0
-            s -=1
-            i +=1
-        elif comando == "NEG":
-            #(">>> ENCONTROU NEG ")
-            memoria[s] = 1-memoria[s]
-            i +=1
-
-        elif comando == "CME":
-            #(">>> ENCONTROU CME ")
-            if memoria[s-1] < memoria[s]: # memoria anterior deve ser 1 OU a memoria atual deve ser 1 ? PERGUNTAR
-                memoria[s-1] = 1
-            else:
-                memoria[s-1] = 0
-            s -=1
-            i +=1
-        elif comando == "CMA":
-            #(">>> ENCONTROU CMA ")
-            if memoria[s-1] > memoria[s]: # memoria anterior deve ser 1 OU a memoria atual deve ser 1 ? PERGUNTAR
-                memoria[s-1] = 1
-            else:
-                memoria[s-1] = 0
-            s -=1
-            i +=1
-
-        elif comando == "CEQ":
-            #(">>> ENCONTROU CEQ ")
-            if memoria[s-1] == memoria[s]: # memoria anterior deve ser 1 OU a memoria atual deve ser 1 ? PERGUNTAR
-                memoria[s-1] = 1
-            else:
-                memoria[s-1] = 0
-            s -=1
-            i +=1
-
-        elif comando == "CDIF":
-            #(">>> ENCONTROU CDIF ")
-            if memoria[s-1] != memoria[s]: # memoria anterior deve ser 1 OU a memoria atual deve ser 1 ? PERGUNTAR
-                memoria[s-1] = 1
-            else:
-                memoria[s-1] = 0
-            s -=1
-            i +=1
-
-        elif comando == "CMEQ":
-            #(">>> ENCONTROU CMEQ ")
-            if memoria[s-1] <= memoria[s]: # memoria anterior deve ser 1 OU a memoria atual deve ser 1 ? PERGUNTAR
-                memoria[s-1] = 1
-            else:
-                memoria[s-1] = 0
-            s -=1
-            i +=1
-
-        elif comando == "CMAQ":
-            #(">>> ENCONTROU CMAQ ")
-            if memoria[s-1] >= memoria[s]: # memoria anterior deve ser 1 OU a memoria atual deve ser 1 ? PERGUNTAR
-                memoria[s-1] = 1
-            else:
-                memoria[s-1] = 0
-            s -=1
-            i +=1
-
-        
-        elif comando == "STR":
-            #(">>> ENCONTROU STR ")
-            memoria[int(val1)] = memoria[s]
-            s -=1
-            i +=1
-
-        elif comando == "JMP":
-            #(">>> ENCONTROU JMP ")
-            i = rotulos[val1]
-
-        elif comando == "JMPF":
-            #(">>> ENCONTROU JMPF ")
-            if memoria[s] == 0:
-                i = rotulos[val1]
-            else:
-                i += 1
-            s -=1
-        
-        elif comando == "RD":
-            #(">>> ENCONTROU RD ")
-            s +=1
-            valor_lido = input("Entre com um valor inteiro: ")
-            memoria[s] = int(valor_lido)
-            i +=1
-
-        elif comando == "PRN":
-            #(">>> ENCONTROU PRN ")
-            print(f"Saída: {memoria[s]}")
-            input("Pressione Enter para continuar...")
-            s-=1
-            i +=1
-        elif comando == "ALLOC":
-            #(">>> ENCONTROU ALLOC ")
-            m = int(val1)
-            n = int(val2)
-            for k in range(n):
-                s +=1
-                memoria[s] = memoria[m + k]
-            i += 1
-        
-        elif comando == "DALLOC":
-            #(">>> ENCONTROU DALLOC ")
-            m = int(val1)
-            n = int(val2)
-            for  k in range(n-1, -1, -1):
-                memoria[m + k] = memoria[s]
-                s -=1
-            i += 1
-        
-        elif comando == "CALL":
-            #(">>> ENCONTROU CALL ")
-            s +=1
-            memoria[s] = i + 1  
-            i = rotulos[val1]
-
-        elif comando == "RETURN":
-            #(">>> ENCONTROU RETURN ")
-            i = memoria[s]  
-            s -=1
-
-        else:
-            # Comandos normais
-            #(">>> ENCONTROU NULL ")
-            i += 1
-        
-        # Segurança contra loop infinito
-        if i < 0 or i >= len(programa):
-            #(">>> ERRO: i fora dos limites do programa")
-            break
-
-    # Mostra também uma visão geral da memória
-    print("Memória completa (primeiras 20 posições):")
-    for j in range(0, min(20, len(memoria))):
-        marker = " <-- topo" if j == s else ""
-        print(f"  [{j}]: {memoria[j]}{marker}")
-
-    
-    print("Fim da execução")
- 
+# Exemplo de uso standalone (modo console)
 if __name__ == "__main__":
-    nome_arquivo = "teste.txt"
+    vm = MaquinaVirtual()
     
-    print("=== VERSÃO SIMPLES ===")
-    programa = carregar_programa_simples(nome_arquivo)
-    for i, instrucao in enumerate(programa):
-        print(f"{i:2d}: {instrucao}")
+    # Configura callbacks para console
+    vm.on_output = lambda valor: print(f"📤 Saída: {valor}")
+    vm.on_halt = lambda: print("🛑 Execução finalizada")
+    vm.on_error = lambda msg: print(f"❌ Erro: {msg}")
     
-    executar_programa_simples(programa)
+    # Carrega e executa
+    try:
+        num_instrucoes = vm.carregar_programa("teste.txt")
+        print(f"✅ Programa carregado: {num_instrucoes} instruções\n")
+        
+        vm.executando = True
+        while vm.executando and vm.i < len(vm.programa):
+            if not vm.executar_instrucao():
+                break
+        
+        print("\n📊 Estado final:")
+        print(f"   i={vm.i}, s={vm.s}")
+        print(f"   Memória (primeiras 10): {vm.memoria[:10]}")
+        
+    except FileNotFoundError:
+        print("❌ Arquivo 'teste.txt' não encontrado")
+    except Exception as e:
+        print(f"❌ Erro: {e}")
