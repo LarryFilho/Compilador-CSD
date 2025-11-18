@@ -30,7 +30,7 @@ typedef struct {
 int numero_linha = 1;
 int numero_rotulo = 0;
 int alloc_atual = 0;
-int memoria_atual = 0;
+int memoria_atual = 1;
 int numero_alloc = 0;
 Dalloc pilha_dalloc[100];
 
@@ -76,6 +76,7 @@ int precedencia(char operador);
 char acha_caractere_anterior(char saida[], int contador_saida);
 int eh_operador_unario(char operador, char caractere_anterior);
 void gera(char rotulo[], char instrucao[], char operando1[], char operando2[], FILE *file_saida);
+int procura_ind(char lexema[], int *pc, Tabsimb TABSIMB[]);
 
 void adiciona_token_vetor(VetorTokens *vetor, Token token) {
     if (vetor->count < MAX_TOKENS_EXPR) {
@@ -500,8 +501,6 @@ Token analisa_variaveis(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE
     } while (strcmp(token.simbolo,"sdoispontos") != 0);
     sprintf(string, "%d", vars_count);
     sprintf(string2, "%d", alloc_atual);
-    printf("vars: %d\n", vars_count);
-    printf("alloc: %d\n", alloc_atual);
     registrar_alloc(alloc_atual, vars_count);
     gera(" ", "ALLOC", string2, string, file_saida);
     alloc_atual += vars_count;
@@ -583,7 +582,7 @@ int pega_tipo(const char *lexema,Tabsimb TABSIMB[],int *pc)
         if(strcmp(lexema,TABSIMB[aux].nome) == 0 )
         {
             strcpy(tipo,TABSIMB[aux].tipo);
-            if(strcmp(tipo,"inteiro") == 0)
+            if(strcmp(tipo,"inteiro") == 0 || strcmp(tipo,"funcao inteiro") == 0)
             {
                 return 1;
             }else
@@ -619,9 +618,15 @@ void gera_expr(char *expressao, Tabsimb TABSIMB[], int *pc, FILE *file_saida)
                 } 
                 else if (isalpha(token[0])) 
                 {
-                    printf("%s\n",token);
                     pega_mem(token,TABSIMB,pc,token);
-                    gera(" ","LDV",token," ",file_saida);
+                    if(isdigit(token[0]))
+                    {
+                        gera(" ","LDV",token," ",file_saida);
+                    }else
+                    {
+                        gera(" ","CALL",token," ",file_saida);
+                        gera(" ","LDV","0"," ",file_saida);
+                    }
                 }
                 token_index = 0;
             }
@@ -734,7 +739,6 @@ void gera_expr(char *expressao, Tabsimb TABSIMB[], int *pc, FILE *file_saida)
                 } 
                 else if (isalpha(token[0])) 
                 {
-                    printf("%s\n",token);
                     pega_mem(token,TABSIMB,pc,token);
                     gera(" ","LDV",token," ",file_saida);
                 }
@@ -919,34 +923,38 @@ Token analisa_atribuicao(Token token, FILE *file, Tabsimb TABSIMB[], Token token
 {
     VetorTokens vetor_tokens;
     vetor_tokens.count = 0;
-    int tipo_var,tipo_expr;
+    int tipo_var,tipo_func,tipo_expr;
     char saida[300],mem[5];
-    /* for(int i = 0; token_nome.lexema[i] != 0 ; i++)
-    {
-        if(token_nome.lexema[i] == 0)
-        {
-            break;
-        }
-        printf("%c", token_nome.lexema[i]);
-    }  */ // bloco de código para pegar o nome completo da variavel ou funcao/proc!!!!
+
+    for(int i = 0; i < MAX_TOKENS_EXPR; i++) {
+        vetor_tokens.tokens[i] = (Token){"",""};
+    }
     
     tipo_var = pega_tipo(token_nome.lexema,TABSIMB,pc);
     pega_mem(token_nome.lexema,TABSIMB,pc,mem);
     token = lexico(file);
+    int ind = procura_ind(token.lexema,pc,TABSIMB);
     token = analisa_expressao(token,file,pc,TABSIMB,&vetor_tokens);
 
-    trata_expressao_posfix(token, file,vetor_tokens,saida);
-    tipo_expr = pega_tipo_expr(saida,TABSIMB,pc);
-    if(tipo_expr == -1)
-    {
-        erro("expressao com tipos invalidos");
-    }
-    if(tipo_var != tipo_expr)
-    {
-        erro("tipos incompativeis");
-    }
-    gera_expr(saida,TABSIMB,pc,file_saida);
-    gera(" ","STR",mem," ",file_saida);
+    
+        trata_expressao_posfix(token, file,vetor_tokens,saida);
+        tipo_expr = pega_tipo_expr(saida,TABSIMB,pc);
+        if(tipo_expr == -1)
+        {
+            erro("expressao com tipos invalidos");
+        }
+        if(tipo_var != tipo_expr)
+        {
+            erro("tipos incompativeis");
+        }
+        gera_expr(saida,TABSIMB,pc,file_saida);
+        if(isdigit(mem[0]))
+        {
+            gera(" ","STR",mem," ",file_saida);
+        }else
+        {
+            gera(" ","STR","0"," ",file_saida);
+        }
     return token;
 }
 
@@ -1068,8 +1076,6 @@ void trata_expressao_posfix(Token token, FILE *file,VetorTokens vetorTokens,char
         }
     }
 
-
-    printf("Expressão posfixa: %s\n", saida); //print teste da posfixa
 }
 
 int precedencia(char operador) {
@@ -1299,6 +1305,7 @@ Token analisa_fator(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],VetorTok
             int ind = procura_ind(token.lexema,pc,TABSIMB);
             if(strcmp(TABSIMB[ind].tipo,"funcao inteiro") == 0 || strcmp(TABSIMB[ind].tipo,"funcao booleano") == 0)
             {
+                adiciona_token_vetor(vetorTokens, token);
                 token = analisa_chamada_funcao(token, file);
                 return token;
             }else
@@ -1529,7 +1536,7 @@ Token analisa_declaracao_procedimento(Token token, FILE *file,int *pc, Tabsimb T
 Token analisa_declaracao_funcao(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
 {
     char nivel = 'L';
-    char string[5];
+    char string[5],aux[5],aux2[5];
     token = lexico(file);
     if(strcmp(token.simbolo,"sidentificador") == 0)
     {
@@ -1539,6 +1546,7 @@ Token analisa_declaracao_funcao(Token token, FILE *file, int *pc, Tabsimb TABSIM
             int indice = *pc;
             sprintf(string,"%c%d",nivel,numero_rotulo++);
             insere_tabela(token.lexema,"",nivel,string,pc,TABSIMB);
+            gera(string,"NULL"," ", " ",file_saida);
             token = lexico(file);
             if(strcmp(token.simbolo,"sdoispontos") == 0)
             {
@@ -1556,6 +1564,11 @@ Token analisa_declaracao_funcao(Token token, FILE *file, int *pc, Tabsimb TABSIM
                     if(strcmp(token.simbolo,"sponto_virgula") == 0)
                     {
                         token = analisa_bloco(file,pc,TABSIMB,file_saida);
+                        numero_alloc--;
+                        sprintf(aux,"%d",pilha_dalloc[numero_alloc].val1);
+                        sprintf(aux2,"%d",pilha_dalloc[numero_alloc].val2);
+                        gera(" ","DALLOC",aux,aux2,file_saida);
+                        gera(" ","RETURN"," "," ",file_saida);
                     }
                 }else
                 {
@@ -1751,6 +1764,9 @@ int main()
     if(strcmp(token.simbolo,"sprograma") == 0)
     {
         gera(" ","START"," "," ",file_saida);
+        registrar_alloc(alloc_atual,1);
+        gera(" ", "ALLOC", "0", "1", file_saida);
+        alloc_atual += 1;
         token = lexico(file);
         if(strcmp(token.simbolo,"sidentificador") == 0)
         {
@@ -1763,14 +1779,18 @@ int main()
                 if(strcmp(token.simbolo,"sponto") == 0)
                 {
                     char aux[5],aux2[5];
-                    numero_alloc--;
-                    sprintf(aux,"%d",pilha_dalloc[numero_alloc].val1);
-                    sprintf(aux2,"%d",pilha_dalloc[numero_alloc].val2);
-                    gera(" ","DALLOC",aux,aux2,file_saida);
+                    while(numero_alloc > 0)
+                    {
+                        numero_alloc--;
+                        sprintf(aux,"%d",pilha_dalloc[numero_alloc].val1);
+                        sprintf(aux2,"%d",pilha_dalloc[numero_alloc].val2);
+                        gera(" ","DALLOC",aux,aux2,file_saida);
+                        sprintf(aux,"L%d",pilha_dalloc[numero_alloc].val1);
+                        sprintf(aux2,"L%d",pilha_dalloc[numero_alloc].val2);
+                    }                   
                     gera(" ","HLT"," "," ",file_saida);
                     printf("Análise sintatica concluída com sucesso!\n");
                     imprime_tabela(TABSIMB, &pc);
-
                 }else
                 {
                     erro("esperado '.'");
