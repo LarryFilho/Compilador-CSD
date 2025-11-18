@@ -618,7 +618,6 @@ void gera_expr(char *expressao, Tabsimb TABSIMB[], int *pc, FILE *file_saida)
                 } 
                 else if (isalpha(token[0])) 
                 {
-                    printf("%s\n",token);
                     pega_mem(token,TABSIMB,pc,token);
                     if(isdigit(token[0]))
                     {
@@ -740,7 +739,6 @@ void gera_expr(char *expressao, Tabsimb TABSIMB[], int *pc, FILE *file_saida)
                 } 
                 else if (isalpha(token[0])) 
                 {
-                    printf("%s\n",token);
                     pega_mem(token,TABSIMB,pc,token);
                     gera(" ","LDV",token," ",file_saida);
                 }
@@ -936,7 +934,6 @@ Token analisa_atribuicao(Token token, FILE *file, Tabsimb TABSIMB[], Token token
     pega_mem(token_nome.lexema,TABSIMB,pc,mem);
     token = lexico(file);
     int ind = procura_ind(token.lexema,pc,TABSIMB);
-    printf("de tipo %s\n",TABSIMB[ind].tipo);
     token = analisa_expressao(token,file,pc,TABSIMB,&vetor_tokens);
 
     
@@ -1079,8 +1076,6 @@ void trata_expressao_posfix(Token token, FILE *file,VetorTokens vetorTokens,char
         }
     }
 
-
-    printf("Expressão posfixa: %s\n", saida); //print teste da posfixa
 }
 
 int precedencia(char operador) {
@@ -1787,7 +1782,6 @@ int main()
                     while(numero_alloc > 0)
                     {
                         numero_alloc--;
-                        printf("numero_alloc: %d\n",numero_alloc);
                         sprintf(aux,"%d",pilha_dalloc[numero_alloc].val1);
                         sprintf(aux2,"%d",pilha_dalloc[numero_alloc].val2);
                         gera(" ","DALLOC",aux,aux2,file_saida);
