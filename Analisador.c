@@ -618,6 +618,18 @@ void gera_expr(char *expressao, Tabsimb TABSIMB[], int *pc, FILE *file_saida)
                 } 
                 else if (isalpha(token[0])) 
                 {
+                    if(strcmp(token, "verdadeiro") == 0)
+                    {
+                        gera(" ","LDC","1"," ",file_saida);
+                        token_index = 0;
+                        continue;
+                    }
+                    if(strcmp(token, "falso") == 0)
+                    {
+                        gera(" ","LDC","0"," ",file_saida);
+                        token_index = 0;
+                        continue;
+                    }
                     pega_mem(token,TABSIMB,pc,token);
                     if(isdigit(token[0]))
                     {
@@ -767,6 +779,12 @@ int pega_tipo_expr(char *expressao, Tabsimb TABSIMB[], int *pc) {
                     strcpy(pilha[++topo], "I");
                 } else if (isalpha(token[0])) 
                 {
+                    if(strcmp(token, "verdadeiro") == 0 || strcmp(token, "falso") == 0)
+                    {
+                        strcpy(pilha[++topo], "B");
+                        token_index = 0;
+                        continue;
+                    }
                     // É variável - buscar tipo na tabela de símbolos
                     int tipo = pega_tipo(token, TABSIMB, pc);
                     if (tipo == 1) 
@@ -972,7 +990,8 @@ void trata_expressao_posfix(Token token, FILE *file,VetorTokens vetorTokens,char
     {
         tokens = vetorTokens.tokens[cont++];
 
-        if(strcmp(tokens.simbolo,"sidentificador") == 0 || strcmp(tokens.simbolo,"snumero") == 0) 
+        if(strcmp(tokens.simbolo,"sidentificador") == 0 || strcmp(tokens.simbolo,"snumero") == 0 ||
+           strcmp(tokens.simbolo,"sverdadeiro") == 0 || strcmp(tokens.simbolo,"sfalso") == 0)
         {
             for(int i = 0; tokens.lexema[i] != '\0'; i++) //verifica se nao é o final da expressao
             {
@@ -1328,6 +1347,7 @@ Token analisa_fator(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],VetorTok
         adiciona_token_vetor(vetorTokens, token);
         token = lexico(file);
         token = analisa_fator(token, file, pc, TABSIMB,vetorTokens);
+        return token;
     }else if(strcmp(token.simbolo,"sabre_parenteses") == 0)
     {
         adiciona_token_vetor(vetorTokens, token);
