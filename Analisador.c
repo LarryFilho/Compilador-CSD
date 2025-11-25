@@ -1,3 +1,14 @@
+/*
+*   Analisador CSD
+*   Trabalho de Compiladores
+*   Prof. Ricardo Luis Freitas
+*   Alunos: Fernando Bordin Correa RA: 20098174
+*           Larry Luiz Alves Filho RA: 22018977
+*           Plinio Zanchetta       RA: 22023003
+*           Murilo Montebello      RA: 22018897
+*   Data: 24/11/2025
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +44,9 @@ int alloc_atual = 0;
 int memoria_atual = 1;
 int numero_alloc = 0;
 Dalloc pilha_dalloc[100];
+int allocou[20];
+int num_allocou = 0;
+Token vazio;
 
 // Declaração de protótipos de todas as funções
 void TrataDigito(char c, FILE *file, Token *token);
@@ -47,7 +61,7 @@ Token lexico(FILE *file);
 Token analisa_tipo(Token token, FILE *file, int *pc, Tabsimb TABSIMB[]);
 Token analisa_variaveis(Token token, FILE *file,int *pc,Tabsimb TABSIMB[],FILE *file_saida);
 Token analisa_et_variaveis(Token token, FILE *file, int *pc,Tabsimb TABSIMB[],FILE *file_saida);
-Token analisa_atrib_chprocedimento(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida);
+Token analisa_atrib_chprocedimento(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida,Token anteiror);
 Token analisa_leia(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida);
 Token analisa_escreva(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida);
 Token analisa_fator(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],VetorTokens *vetorTokens);
@@ -56,14 +70,14 @@ Token analisa_expressao_simples(Token token, FILE *file, int *pc, Tabsimb TABSIM
 Token analisa_expressao(Token token, FILE *file, int *pc, Tabsimb TABSIMB[], VetorTokens *vetorTokens);
 Token analisa_enquanto(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida);
 Token analisa_se(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida);
-Token analisa_comando_simples(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida);
+Token analisa_comando_simples(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida,Token anteiror);
 Token analisa_comandos(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida);
 Token analisa_declaracao_procedimento(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida);
 Token analisa_declaracao_funcao(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida);
 Token analisa_subrotinas(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida);
 Token analisa_bloco(FILE *file,int *pc,Tabsimb TABSIMB[],FILE *file_saida);
 Token analisa_chamada_funcao(Token token,FILE *file);
-Token chamada_procedimento(Token token, FILE *file, char *rotulo,FILE *file_saida);
+Token chamada_procedimento(Token token, FILE *file, char *rotulo,FILE *file_saida,Token anteiror);
 void insere_tabela(const char *nome, const char *tipo, char escopo, const char *memoria, int *pc,Tabsimb TABSIMB[]);
 int pesquisa_duplicvar_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[]);
 void coloca_tipo_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[]);
@@ -73,7 +87,7 @@ void imprime_tabela(Tabsimb TABSIMB[], int *pc);
 Token analisa_atribuicao(Token token, FILE *file, Tabsimb TABSIMB[], Token token_nome, int *pc,FILE *file_saida);
 void trata_expressao_posfix(Token token, FILE *file, VetorTokens vetor_tokens, char saida[]);
 int precedencia(char operador);
-char acha_caractere_anterior(char saida[], int contador_saida);
+char acha_caractere_anterior(Token vetor_tokens_lidos[], int contador_tokens);
 int eh_operador_unario(char operador, char caractere_anterior);
 void gera(char rotulo[], char instrucao[], char operando1[], char operando2[], FILE *file_saida);
 int procura_ind(char lexema[], int *pc, Tabsimb TABSIMB[]);
@@ -93,11 +107,13 @@ void registrar_alloc(int base, int quantidade) {
     }
 }
 
+// Função para printar erros
 void erro(const char *mensagem) {
     printf("Erro na linha %d: %s\n", numero_linha, mensagem);
     exit(1);
 }
 
+//Funcao para tratar os digitos
 void TrataDigito(char c,FILE *file, Token *token)
 {
     char num[20];
@@ -149,6 +165,7 @@ int hash_identificadores(const char *str) {
     return 0;
 }
 
+//Funcao para tratar os identificadores e palavras reservadas
 void TrataIdentificador(char c,FILE *file, Token *token)
 {
     char id[50];
@@ -239,6 +256,7 @@ void TrataIdentificador(char c,FILE *file, Token *token)
     }    
 }
 
+//Funcao para tratar atribuicao e dois pontos
 void TrataAtribuicao(char c,FILE *file, Token *token)
 {
     c = fgetc(file);
@@ -258,6 +276,7 @@ void TrataAtribuicao(char c,FILE *file, Token *token)
     }
 }
 
+//Funcao para tratar operadores aritmeticos
 void TrataOperadorAritmetico(char c,FILE *file, Token *token)
 {
     if (c == '+')
@@ -277,6 +296,7 @@ void TrataOperadorAritmetico(char c,FILE *file, Token *token)
     }
 }
 
+//Funcao para tratar operadores relacionais
 void TrataOperadorRelacional(char c,FILE *file, Token *token)
 {
     if (c == '>')
@@ -337,6 +357,7 @@ void TrataOperadorRelacional(char c,FILE *file, Token *token)
     }
 }
 
+//Funcao para tratar pontuacoes
 void TrataPontuacao(char c,FILE *file, Token *token)
 {
     if (c == ';')
@@ -366,6 +387,7 @@ void TrataPontuacao(char c,FILE *file, Token *token)
     }
 }
 
+//Funcao para tratar token recebido
 Token PegaToken (char c, FILE *file, Token *token)
 {
     if(c >= '0' && c <= '9')
@@ -400,6 +422,7 @@ Token PegaToken (char c, FILE *file, Token *token)
    
 }
 
+//Funcao lexico
 Token lexico(FILE *file)
 {
     char c = fgetc(file);
@@ -445,7 +468,7 @@ Token lexico(FILE *file)
     return token;
 }
 
-
+//Funcao para analisar tipos
 Token analisa_tipo(Token token, FILE *file, int *pc, Tabsimb TABSIMB[])
 {
     if(strcmp(token.simbolo,"sinteiro") != 0 && strcmp(token.simbolo,"sbooleano") != 0)
@@ -459,6 +482,7 @@ Token analisa_tipo(Token token, FILE *file, int *pc, Tabsimb TABSIMB[])
     return token;
 }
 
+//Funcao para analisar variaveis
 Token analisa_variaveis(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
 {
     int dup;
@@ -509,16 +533,19 @@ Token analisa_variaveis(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE
     return token;
 }
 
+//Funcao para analisar a declaracao de variaveis
 Token analisa_et_variaveis(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
 {
     if(strcmp(token.simbolo,"svar") == 0)
     {
+        int alloc_neste_bloco = 0;
        token = lexico(file);
        if(strcmp(token.simbolo,"sidentificador") == 0)
        {
         while(strcmp(token.simbolo,"sidentificador") == 0)
         {
             token = analisa_variaveis(token,file,pc,TABSIMB,file_saida);
+            alloc_neste_bloco++;
             if(strcmp(token.simbolo,"sponto_virgula") == 0)
             {
                 token = lexico(file);
@@ -531,11 +558,20 @@ Token analisa_et_variaveis(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],F
        {
         erro("esperado identificador");
        }
+
+       allocou[num_allocou] = alloc_neste_bloco;
+       num_allocou++;
+
+    }else
+    {
+        allocou[num_allocou] = 0;
+        num_allocou++;
     }
 
     return token;
 }
 
+//Funcao para analisar a chamada de funcao
 Token analisa_chamada_funcao(Token token, FILE *file)
 {
     if(strcmp(token.simbolo,"sidentificador") != 0)
@@ -546,8 +582,14 @@ Token analisa_chamada_funcao(Token token, FILE *file)
     return token;
 }
 
-Token chamada_procedimento(Token token, FILE *file, char *rotulo,FILE *file_saida)
+//Funcao para analisar a chamada de procedimento
+Token chamada_procedimento(Token token, FILE *file, char *rotulo,FILE *file_saida,Token anteiror)
 {
+    if(strcmp(anteiror.simbolo,"sentao") == 0)
+    {
+        gera(" ","CALL",rotulo," ",file_saida);
+        return token;
+    }
     if(strcmp(token.simbolo,"sponto_virgula") != 0)
     {
         erro("esperado ';'");
@@ -556,6 +598,7 @@ Token chamada_procedimento(Token token, FILE *file, char *rotulo,FILE *file_said
     return token;
 }
 
+//Funcao para pegar a memoria da variavel
 char* pega_mem(const char *lexema,Tabsimb TABSIMB[],int *pc,char *resultado)
 {  
     int aux = *pc;
@@ -573,6 +616,7 @@ char* pega_mem(const char *lexema,Tabsimb TABSIMB[],int *pc,char *resultado)
 
 }
 
+//Funcao para pegar o tipo da variavel
 int pega_tipo(const char *lexema,Tabsimb TABSIMB[],int *pc)
 {
     char tipo[20];
@@ -596,6 +640,7 @@ int pega_tipo(const char *lexema,Tabsimb TABSIMB[],int *pc)
     }
 }
 
+//Funcao para gerar codigo da expressao
 void gera_expr(char *expressao, Tabsimb TABSIMB[], int *pc, FILE *file_saida)
 {
     char string[20];
@@ -718,7 +763,7 @@ void gera_expr(char *expressao, Tabsimb TABSIMB[], int *pc, FILE *file_saida)
                 // Operadores unários: ^ (positivo), $ (negativo)
                 case '^':
                 {
-                    //nao sei
+                   break;
                 }
                 case '$': 
                 {
@@ -758,6 +803,7 @@ void gera_expr(char *expressao, Tabsimb TABSIMB[], int *pc, FILE *file_saida)
     }
 }
 
+// Função para pegar e verificar o tipo de expressão
 int pega_tipo_expr(char *expressao, Tabsimb TABSIMB[], int *pc) {
     char pilha[100][50]; // Pilha para armazenar tipos ("I" ou "B")
     int topo = -1;
@@ -937,6 +983,7 @@ int pega_tipo_expr(char *expressao, Tabsimb TABSIMB[], int *pc) {
     return -1; // Erro - expressão mal formada
 }
 
+//funcao que analisa uma atribuicao
 Token analisa_atribuicao(Token token, FILE *file, Tabsimb TABSIMB[], Token token_nome, int *pc,FILE *file_saida)
 {
     VetorTokens vetor_tokens;
@@ -976,12 +1023,13 @@ Token analisa_atribuicao(Token token, FILE *file, Tabsimb TABSIMB[], Token token
     return token;
 }
 
+//funcao que transforma a expressao infix em posfix
 void trata_expressao_posfix(Token token, FILE *file,VetorTokens vetorTokens,char *saida)
 {
     char pilha[100], operador_atual = ' ', caractere_anterior;
     int contador_saida = 0, contador_pilha = 0, eh_unario;;
-    Token tokens;
-    int cont = 0;
+    Token tokens, vetor_tokens_lidos[100];
+    int cont = 0, cont2 = 0;
 
     for(int i = 0; i < 300; i++) saida[i] = '\0';   //inicializa ambos os vetores com /0 pra evitar problemas com lixo
     for(int i = 0; i < 100; i++) pilha[i] = '\0';
@@ -989,6 +1037,8 @@ void trata_expressao_posfix(Token token, FILE *file,VetorTokens vetorTokens,char
     while(1) //so sai quando der erro ou parar no "break" (terminando de desempilhar a pilha) 
     {
         tokens = vetorTokens.tokens[cont++];
+
+        vetor_tokens_lidos[cont2++] = tokens;
 
         if(strcmp(tokens.simbolo,"sidentificador") == 0 || strcmp(tokens.simbolo,"snumero") == 0 ||
            strcmp(tokens.simbolo,"sverdadeiro") == 0 || strcmp(tokens.simbolo,"sfalso") == 0)
@@ -1033,7 +1083,7 @@ void trata_expressao_posfix(Token token, FILE *file,VetorTokens vetorTokens,char
                 strcmp(tokens.simbolo,"sou") == 0) 
             {
 
-                caractere_anterior = acha_caractere_anterior(saida, contador_saida);
+                caractere_anterior = acha_caractere_anterior(vetor_tokens_lidos, cont2);
 
                 if(strcmp(tokens.simbolo,"smais") == 0)
                 {
@@ -1091,12 +1141,14 @@ void trata_expressao_posfix(Token token, FILE *file,VetorTokens vetorTokens,char
                 saida[contador_saida++] = ' ';
             }
 
+            printf("Expressão posfixa: %s\n", saida); //print teste da posfixa 
             break;
         }
     }
 
 }
 
+//Verifica a precedencia dos operadores
 int precedencia(char operador) {
     switch(operador) 
     {
@@ -1119,22 +1171,34 @@ int precedencia(char operador) {
     }
 }
 
-char acha_caractere_anterior(char saida[], int contador_saida)  //funcao feita pra achar o primeiro caractere na saida que NAO SEJA ESPAÇO
+//Acha o caracter anterior na expressao
+char acha_caractere_anterior(Token vetor_tokens_lido[], int contador_tokens)  //funcao feita pra achar o primeiro caractere na saida que NAO SEJA ESPAÇO
 {
-    for(int contador_auxiliar = contador_saida - 1; contador_auxiliar >= 0; contador_auxiliar--)
-    {
-        if(contador_saida == 0) 
-        {
-            return '\0';
-        }
-        else if(saida[contador_auxiliar] != ' ') //percorre todo o vetor a partir do topo decrementando ate achar um caracetere valido e retorna
-        {
-            return saida[contador_auxiliar];
-        }
-    }
-    return '\0'; //retorna vazio se não encontrar nenhum vlido
+    if (contador_tokens <= 1)
+        return '\0'; 
+
+    Token anterior = vetor_tokens_lido[contador_tokens - 2];
+
+
+    if (strcmp(anterior.simbolo, "sabre_parenteses") == 0)return '(';
+    if (strcmp(anterior.simbolo, "smais") == 0) return '+';
+    if (strcmp(anterior.simbolo, "smenos") == 0) return '-';
+    if (strcmp(anterior.simbolo, "smult") == 0) return '*';
+    if (strcmp(anterior.simbolo, "sdiv") == 0) return '/';
+    if (strcmp(anterior.simbolo, "smaior") == 0) return '>';
+    if (strcmp(anterior.simbolo, "smenor") == 0) return '<';
+    if (strcmp(anterior.simbolo, "smaiorig") == 0) return '@';
+    if (strcmp(anterior.simbolo, "smenorig") == 0) return '#';
+    if (strcmp(anterior.simbolo, "sigual") == 0) return '=';
+    if (strcmp(anterior.simbolo, "sdif") == 0) return '!';
+    if (strcmp(anterior.simbolo, "snao") == 0) return '~';
+    if (strcmp(anterior.simbolo, "se") == 0) return '&';
+    if (strcmp(anterior.simbolo, "sou") == 0) return '|';
+
+    return 'n';
 }
 
+//Verifica se o operador é unario
 int eh_operador_unario(char operador, char caractere_anterior) {
     if (operador == '+' || operador == '-') {
         if(caractere_anterior == '(' || caractere_anterior == '\0' || 
@@ -1153,7 +1217,8 @@ int eh_operador_unario(char operador, char caractere_anterior) {
     }
 }
 
-Token analisa_atrib_chprocedimento(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
+//Funcao para analisar atribuicao ou chamada de procedimento
+Token analisa_atrib_chprocedimento(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida,Token anteiror)
 {
     char rotulo[5];
     Token token_nome = token;
@@ -1166,11 +1231,12 @@ Token analisa_atrib_chprocedimento(Token token, FILE *file, int *pc, Tabsimb TAB
         return token;
     }else
     {
-        token = chamada_procedimento(token,file,rotulo,file_saida);
+        token = chamada_procedimento(token,file,rotulo,file_saida,anteiror);
         return token;
     }
 }
 
+//Funcao para analisar leitura
 Token analisa_leia(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
 {
     int ex = 1,tip;
@@ -1211,6 +1277,7 @@ Token analisa_leia(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *fil
     }
 }
 
+//Funcao para analisar escrita
 Token analisa_escreva(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
 {
     int ex = 1, tip;
@@ -1251,6 +1318,7 @@ Token analisa_escreva(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *
     }
 }
 
+//Funcao para analisar termo
 Token analisa_termo(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],VetorTokens *vetorTokens)
 {
     token = analisa_fator(token, file, pc, TABSIMB,vetorTokens);
@@ -1263,6 +1331,7 @@ Token analisa_termo(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],VetorTok
     return token;
 }
 
+//Funcao para analisar expressao simples
 Token analisa_expressao_simples(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],VetorTokens *vetorTokens)
 {
     if(strcmp(token.simbolo,"smais") == 0 || strcmp(token.simbolo,"smenos") == 0)
@@ -1279,6 +1348,8 @@ Token analisa_expressao_simples(Token token, FILE *file, int *pc, Tabsimb TABSIM
     }
     return token;
 }
+
+//Funcao para analisar expressao
 Token analisa_expressao(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],VetorTokens *vetorTokens)
 {
     
@@ -1300,6 +1371,7 @@ Token analisa_expressao(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],Veto
     return token;
 }
 
+//Procura o indice do lexema na tabela de simbolos
 int procura_ind(char lexema[], int *pc, Tabsimb TABSIMB[])
 {
     int aux = *pc;
@@ -1314,6 +1386,7 @@ int procura_ind(char lexema[], int *pc, Tabsimb TABSIMB[])
 
 }
 
+//Funcao para analisar fator
 Token analisa_fator(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],VetorTokens *vetorTokens)
 {
     int ex;
@@ -1373,8 +1446,10 @@ Token analisa_fator(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],VetorTok
     }
 }
 
+//Funcao para analisar enquanto
 Token analisa_enquanto(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
 {
+    Token vazio ;
     VetorTokens vetor_tokens;
     vetor_tokens.count = 0;
     char saida[300],string[5],string2[5];
@@ -1402,7 +1477,7 @@ Token analisa_enquanto(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE 
     if(strcmp(token.simbolo,"sfaca") == 0)
     {
         token = lexico(file);
-        token = analisa_comando_simples(token, file,pc,TABSIMB,file_saida);
+        token = analisa_comando_simples(token, file,pc,TABSIMB,file_saida,vazio);
         gera(" ","JMP",string," ",file_saida);
         gera(string2,"NULL"," ", " ",file_saida);
     }else
@@ -1412,9 +1487,11 @@ Token analisa_enquanto(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE 
     return token;
 }
 
+//Funcao para analisar se
 Token analisa_se(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
 {
     VetorTokens vetor_tokens;
+    Token anteiror;
     vetor_tokens.count = 0;
     char saida[300],string[5],string2[5];
     int tipo_expr;
@@ -1438,8 +1515,9 @@ Token analisa_se(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_
     gera(" ","JMPF",string," ",file_saida);
     if(strcmp(token.simbolo,"sentao") == 0)
     {
+        anteiror = token;
         token = lexico(file);
-        token = analisa_comando_simples(token, file,pc,TABSIMB,file_saida);
+        token = analisa_comando_simples(token, file,pc,TABSIMB,file_saida,anteiror);
 
         sprintf(string2,"L%d",numero_rotulo++);
         gera(" ","JMP",string2," ",file_saida);
@@ -1448,7 +1526,7 @@ Token analisa_se(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_
         if(strcmp(token.simbolo,"ssenao") == 0)
         {
             token = lexico(file);
-            token = analisa_comando_simples(token, file,pc,TABSIMB,file_saida);
+            token = analisa_comando_simples(token, file,pc,TABSIMB,file_saida,vazio);
         }
         gera(string2,"NULL"," ", " ",file_saida);
     }else
@@ -1458,11 +1536,12 @@ Token analisa_se(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_
     return token;
 }
 
-Token analisa_comando_simples(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
+//Funcao para analisar comando simples
+Token analisa_comando_simples(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida,Token anteiror)
 {
     if(strcmp(token.simbolo,"sidentificador") == 0)
     {
-        token = analisa_atrib_chprocedimento(token, file, pc, TABSIMB,file_saida);
+        token = analisa_atrib_chprocedimento(token, file, pc, TABSIMB,file_saida,anteiror);
     }else if(strcmp(token.simbolo,"sse") == 0)
     {
         token = analisa_se(token, file, pc, TABSIMB,file_saida);
@@ -1482,13 +1561,13 @@ Token analisa_comando_simples(Token token, FILE *file, int *pc, Tabsimb TABSIMB[
     return token;
 }
 
-
+//Funcao para analisar comandos
 Token analisa_comandos(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
 {
     if(strcmp(token.simbolo,"sinicio") == 0)
     {
         token = lexico(file);
-        token = analisa_comando_simples(token, file,pc,TABSIMB,file_saida);
+        token = analisa_comando_simples(token, file,pc,TABSIMB,file_saida,vazio);
         while(strcmp(token.simbolo,"sfim") != 0)
         {
             if(strcmp(token.simbolo,"sponto_virgula") == 0)
@@ -1496,7 +1575,7 @@ Token analisa_comandos(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE 
                 token = lexico(file);
                 if(strcmp(token.simbolo,"sfim") != 0)
                 {
-                    token = analisa_comando_simples(token,file,pc,TABSIMB,file_saida);
+                    token = analisa_comando_simples(token,file,pc,TABSIMB,file_saida,vazio);
                 }
             }else
             {
@@ -1511,6 +1590,7 @@ Token analisa_comandos(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE 
     return token;
 }
 
+//Funcao para analisar declaracao de procedimento
 Token analisa_declaracao_procedimento(Token token, FILE *file,int *pc, Tabsimb TABSIMB[],FILE *file_saida)
 {
     char string[5];
@@ -1532,10 +1612,17 @@ Token analisa_declaracao_procedimento(Token token, FILE *file,int *pc, Tabsimb T
                 char aux[5],aux2[5];
 
                 token = analisa_bloco(file,pc,TABSIMB,file_saida);
-                numero_alloc--;
-                sprintf(aux,"%d",pilha_dalloc[numero_alloc].val1);
-                sprintf(aux2,"%d",pilha_dalloc[numero_alloc].val2);
-                gera(" ","DALLOC",aux,aux2,file_saida);
+                num_allocou--;
+                int auxiliar = allocou[num_allocou];
+                printf("%d\n",num_allocou);
+                printf("%d\n",allocou[num_allocou]);
+                for(int i = 0; i < auxiliar ; i++)
+                {
+                    numero_alloc--;
+                    sprintf(aux,"%d",pilha_dalloc[numero_alloc].val1);
+                    sprintf(aux2,"%d",pilha_dalloc[numero_alloc].val2);
+                    gera(" ","DALLOC",aux,aux2,file_saida);
+                }
                 gera(" ","RETURN"," "," ",file_saida);
             }else
             {
@@ -1553,6 +1640,7 @@ Token analisa_declaracao_procedimento(Token token, FILE *file,int *pc, Tabsimb T
     return token;
 }
 
+//Funcao para analisar declaracao de funcao
 Token analisa_declaracao_funcao(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
 {
     char nivel = 'L';
@@ -1584,10 +1672,17 @@ Token analisa_declaracao_funcao(Token token, FILE *file, int *pc, Tabsimb TABSIM
                     if(strcmp(token.simbolo,"sponto_virgula") == 0)
                     {
                         token = analisa_bloco(file,pc,TABSIMB,file_saida);
-                        numero_alloc--;
-                        sprintf(aux,"%d",pilha_dalloc[numero_alloc].val1);
-                        sprintf(aux2,"%d",pilha_dalloc[numero_alloc].val2);
-                        gera(" ","DALLOC",aux,aux2,file_saida);
+                        num_allocou--;
+                        int auxiliar = allocou[num_allocou];
+                        printf("%d\n",num_allocou);
+                        printf("%d\n",allocou[num_allocou]);
+                        for(int i = 0; i < auxiliar ; i++)
+                        {
+                            numero_alloc--;
+                            sprintf(aux,"%d",pilha_dalloc[numero_alloc].val1);
+                            sprintf(aux2,"%d",pilha_dalloc[numero_alloc].val2);
+                            gera(" ","DALLOC",aux,aux2,file_saida);
+                        }
                         gera(" ","RETURN"," "," ",file_saida);
                     }
                 }else
@@ -1611,6 +1706,7 @@ Token analisa_declaracao_funcao(Token token, FILE *file, int *pc, Tabsimb TABSIM
     return token;
 }
 
+//Funcao para analisar subrotinas
 Token analisa_subrotinas(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FILE *file_saida)
 {
     int flag=0;
@@ -1644,6 +1740,8 @@ Token analisa_subrotinas(Token token, FILE *file, int *pc, Tabsimb TABSIMB[],FIL
     }
     return token;
 }
+
+//Funcao para analisar bloco do programa
 Token analisa_bloco(FILE *file,int *pc,Tabsimb TABSIMB[],FILE *file_saida)
 {
     Token token;
@@ -1654,6 +1752,7 @@ Token analisa_bloco(FILE *file,int *pc,Tabsimb TABSIMB[],FILE *file_saida)
     return token;
 }
 
+//Funcao para inserir na tabela de simbolos
 void insere_tabela(const char *nome, const char *tipo, char escopo, const char *memoria, int *pc,Tabsimb TABSIMB[])
 {
     strcpy(TABSIMB[*pc].nome,nome);
@@ -1672,6 +1771,7 @@ void insere_tabela(const char *nome, const char *tipo, char escopo, const char *
     (*pc)++;
 }
 
+//Funcao para pesquisar variavel duplicada na tabela de simbolos
 int pesquisa_duplicvar_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[])
 {
     int aux = *pc;
@@ -1695,6 +1795,7 @@ int pesquisa_duplicvar_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[])
     return 0;
 }
 
+//Funcao para colocar o tipo da variavel na tabela de simbolos
 void coloca_tipo_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[])
 {
     int aux = *pc;
@@ -1717,6 +1818,7 @@ void coloca_tipo_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[])
     }
 }
 
+//Funcao para pesquisar se variavel foi declarada na tabela de simbolos
 int pesquisa_declvar_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[])
 {
     int aux = *pc;
@@ -1733,6 +1835,7 @@ int pesquisa_declvar_tabela(const char *lexema,int *pc,Tabsimb TABSIMB[])
     return 0;
 }
 
+
 void desempilha_nivel(const char nivel,int *pc,Tabsimb TABSIMB[])
 {
     while(TABSIMB[*pc].escopo != nivel)
@@ -1743,7 +1846,7 @@ void desempilha_nivel(const char nivel,int *pc,Tabsimb TABSIMB[])
     (*pc)++;
 }
 
-
+//Funcao para imprimir tabela de simbolos
 void imprime_tabela(Tabsimb TABSIMB[], int *pc) 
 {
     printf("\n=== TABELA DE SÍMBOLOS ===\n");
@@ -1753,11 +1856,13 @@ void imprime_tabela(Tabsimb TABSIMB[], int *pc)
     }
 }
 
+//Funcao para gerar codigo assembly
 void gera(char rotulo[], char instrucao[], char operando1[], char operando2[], FILE *file_saida)
 {
     fprintf(file_saida, "%s %s %s %s\n", rotulo, instrucao, operando1, operando2);
 }
 
+//Funcao main que analisa o inicio e o fim do programa
 int main()
 {
     Token token;
@@ -1766,6 +1871,8 @@ int main()
     FILE *file = fopen("arquivo.txt", "r");
     FILE *file_saida = fopen("saida.txt", "w");
     int pc = 0;
+    vazio.lexema[0] = '\0';
+    vazio.simbolo[0] = '\0';
 
     for(int i = 0; i < 100; i++) {
         TABSIMB[i].nome[0] = '\0';
