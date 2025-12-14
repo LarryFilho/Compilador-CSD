@@ -6,8 +6,6 @@ O **Compilador CSD** é um compilador básico de uma linguagem funcional desenvo
 
 O compilador também conta com uma interface gráfica, que auxilia na visualização do processo de execução, incluindo o acompanhamento da **memória** e da **alocação de variáveis**.
 
----
-
 ## Funcionalidades
 
 - Análise léxica, sintática e semântica da linguagem.
@@ -15,8 +13,6 @@ O compilador também conta com uma interface gráfica, que auxilia na visualiza�
 - Detecção e exibição de erros no programa.
 - Interface gráfica para visualização da execução.
 - Exibição da memória e alocação de variáveis durante a execução.
-
----
 
 ## Como Rodar o Projeto
 1. Clone o repositório:
